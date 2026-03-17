@@ -3,18 +3,21 @@
 -- Run this in the Supabase SQL editor after migration 001.
 -- If you have existing data with 1536-dim embeddings, you'll need to re-index documents.
 
--- 1. Add client_id foreign key to documents table
+-- 1. Remove product_type column (replaced by client association)
+ALTER TABLE documents DROP COLUMN IF EXISTS product_type;
+
+-- 2. Add client_id foreign key to documents table
 ALTER TABLE documents
   ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_documents_client_id ON documents(client_id);
 
--- 2. Add CRM fields to clients table
+-- 3. Add CRM fields to clients table
 ALTER TABLE clients
   ADD COLUMN IF NOT EXISTS contact_email text,
   ADD COLUMN IF NOT EXISTS notes text;
 
--- 3. Update vector dimension from 1536 (OpenAI) to 768 (Google Gemini text-embedding-004)
+-- 4. Update vector dimension from 1536 (OpenAI) to 768 (Google Gemini text-embedding-004)
 -- Drop old index and column, recreate with new dimension
 -- WARNING: This deletes all existing embeddings. Re-index documents after running.
 DROP INDEX IF EXISTS chunks_embedding_idx;
@@ -22,7 +25,7 @@ ALTER TABLE public.chunks DROP COLUMN IF EXISTS embedding;
 ALTER TABLE public.chunks ADD COLUMN embedding vector(768);
 CREATE INDEX ON public.chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
--- 4. Update the search_chunks function for client_id filter and new schema
+-- 5. Update the search_chunks function for client_id filter and new schema
 CREATE OR REPLACE FUNCTION search_chunks(
   query_embedding vector(768),
   match_threshold FLOAT DEFAULT 0.5,
@@ -80,6 +83,6 @@ AS $$
   LIMIT match_count;
 $$;
 
--- 5. Allow authenticated users to delete documents (for admin functionality)
+-- 6. Allow authenticated users to delete documents (for admin functionality)
 CREATE POLICY "Authenticated users can delete documents" ON public.documents
   FOR DELETE USING (auth.role() = 'authenticated');

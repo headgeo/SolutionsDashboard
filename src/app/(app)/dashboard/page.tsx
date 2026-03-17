@@ -1,66 +1,58 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useState, useEffect } from 'react'
 import { formatDate } from '@/lib/utils'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { FileText, Search, Layers, BookUser, TrendingUp, Clock, Users } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function DashboardPage() {
-  const supabase = createClient()
+interface DashboardData {
+  docCount: number
+  approvedCount: number
+  clientCount: number
+  chunkCount: number
+  recentDocs: any[]
+  recentLogs: any[]
+}
 
-  const [
-    { count: docCount },
-    { count: approvedCount },
-    { count: clientCount },
-    { data: recentDocs },
-    { count: chunkCount },
-    { data: recentLogs },
-  ] = await Promise.all([
-    supabase.from('documents').select('*', { count: 'exact', head: true }).neq('status', 'archived'),
-    supabase.from('documents').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-    supabase.from('clients').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('documents')
-      .select('*, profiles:uploader(name), clients:client_id(name)')
-      .neq('status', 'archived')
-      .order('created_at', { ascending: false })
-      .limit(8),
-    supabase.from('chunks').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('client_logs')
-      .select('*, client:client_id(name)')
-      .order('date_sent', { ascending: false })
-      .limit(5),
-  ])
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null)
+
+  useEffect(() => {
+    fetch('/api/dashboard')
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => {})
+  }, [])
 
   const stats = [
-    { label: 'Total Documents', value: docCount ?? 0, icon: FileText, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'Approved', value: approvedCount ?? 0, icon: TrendingUp, color: 'text-status-approved', bg: 'bg-status-approved/10' },
-    { label: 'Indexed Chunks', value: chunkCount ?? 0, icon: Search, color: 'text-accent', bg: 'bg-accent/10' },
-    { label: 'Clients', value: clientCount ?? 0, icon: Users, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+    { label: 'Total Documents', value: data?.docCount ?? 0, icon: FileText, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+    { label: 'Approved', value: data?.approvedCount ?? 0, icon: TrendingUp, color: 'text-status-approved', bg: 'bg-status-approved/10' },
+    { label: 'Indexed Chunks', value: data?.chunkCount ?? 0, icon: Search, color: 'text-accent', bg: 'bg-accent/10' },
+    { label: 'Clients', value: data?.clientCount ?? 0, icon: Users, color: 'text-purple-400', bg: 'bg-purple-400/10' },
   ]
 
   return (
     <div className="p-8 max-w-6xl mx-auto animate-fade-in">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-ink mb-1">
-          Dashboard
-        </h1>
+        <h1 className="text-2xl font-semibold text-ink mb-1">Dashboard</h1>
         <p className="text-sm text-ink-muted">Knowledge base & client overview</p>
       </div>
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
-          <div
-            key={label}
-            className="p-5 rounded-xl border border-surface-border bg-surface-subtle"
-          >
+          <div key={label} className="p-5 rounded-xl border border-surface-border bg-surface-subtle">
             <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center mb-3`}>
               <Icon size={17} className={color} />
             </div>
-            <p className="text-2xl font-semibold text-ink">{value.toLocaleString()}</p>
+            {data ? (
+              <p className="text-2xl font-semibold text-ink">{value.toLocaleString()}</p>
+            ) : (
+              <div className="h-8 w-16 bg-surface-muted rounded animate-pulse" />
+            )}
             <p className="text-xs text-ink-muted mt-0.5">{label}</p>
           </div>
         ))}
@@ -103,7 +95,13 @@ export default async function DashboardPage() {
           </div>
 
           <div className="rounded-xl border border-surface-border bg-surface-subtle overflow-hidden">
-            {recentDocs && recentDocs.length > 0 ? (
+            {!data ? (
+              <div className="space-y-0">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-14 border-b border-surface-border animate-pulse bg-surface-muted/30" />
+                ))}
+              </div>
+            ) : data.recentDocs.length > 0 ? (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-surface-border">
@@ -114,10 +112,10 @@ export default async function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(recentDocs as any[]).map((doc, i) => (
+                  {data.recentDocs.map((doc: any, i: number) => (
                     <tr
                       key={doc.id}
-                      className={`transition-colors hover:bg-surface-muted/50 ${i < recentDocs.length - 1 ? 'border-b border-surface-border' : ''}`}
+                      className={`transition-colors hover:bg-surface-muted/50 ${i < data.recentDocs.length - 1 ? 'border-b border-surface-border' : ''}`}
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
@@ -127,7 +125,7 @@ export default async function DashboardPage() {
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-xs text-ink-muted">
-                          {doc.clients?.name || doc.client_name || '—'}
+                          {doc.client_name || '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
@@ -165,8 +163,12 @@ export default async function DashboardPage() {
           </div>
 
           <div className="rounded-xl border border-surface-border bg-surface-subtle p-4 space-y-3">
-            {recentLogs && recentLogs.length > 0 ? (
-              (recentLogs as any[]).map((log) => (
+            {!data ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="h-12 rounded-lg bg-surface-muted/30 animate-pulse" />
+              ))
+            ) : data.recentLogs.length > 0 ? (
+              data.recentLogs.map((log: any) => (
                 <div key={log.id} className="flex items-start gap-3 pb-3 border-b border-surface-border last:border-0 last:pb-0">
                   <div className="w-7 h-7 rounded-full bg-purple-400/10 flex items-center justify-center shrink-0 mt-0.5">
                     <BookUser size={12} className="text-purple-400" />

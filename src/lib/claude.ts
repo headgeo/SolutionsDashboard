@@ -12,7 +12,7 @@ function getClient(): Anthropic | null {
 
 /**
  * Generate an AI answer to a question using retrieved document chunks (RAG).
- * Returns null if no API key is configured.
+ * Returns null if no API key is configured or not enough context.
  */
 export async function generateAnswer(
   query: string,
@@ -21,28 +21,30 @@ export async function generateAnswer(
   const anthropic = getClient()
   if (!anthropic || chunks.length === 0) return null
 
-  const context = chunks
+  // Limit context to ~4000 chars to save tokens
+  let totalChars = 0
+  const limitedChunks = chunks.filter((c) => {
+    if (totalChars > 4000) return false
+    totalChars += c.content.length
+    return true
+  })
+
+  const context = limitedChunks
     .map((c, i) => {
       const source = c.slide_number
         ? `[${c.filename}, Slide ${c.slide_number}]`
         : `[${c.filename}]`
-      return `--- Source ${i + 1} ${source} ---\n${c.content}`
+      return `--- Source ${i + 1} ${source} ---\n${c.content.slice(0, 1500)}`
     })
     .join('\n\n')
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
+    max_tokens: 512,
     messages: [
       {
         role: 'user',
-        content: `You are a helpful assistant for an internal knowledge base. Answer the question based ONLY on the provided document excerpts. Be concise and specific. If the sources don't contain enough information, say so.
-
-## Document Excerpts
-${context}
-
-## Question
-${query}`,
+        content: `You are a helpful assistant for an internal knowledge base. Answer the question based ONLY on the provided document excerpts. Be concise (2-4 sentences). If the sources don't contain enough information, say so.\n\n## Document Excerpts\n${context}\n\n## Question\n${query}`,
       },
     ],
   })
@@ -62,12 +64,12 @@ export async function generateSummary(
   const anthropic = getClient()
   if (!anthropic || chunks.length === 0) return null
 
-  // Use first ~6000 chars of content for summary
-  const content = chunks.join('\n\n').slice(0, 6000)
+  // Use first ~3000 chars — enough for a summary, saves tokens
+  const content = chunks.join('\n\n').slice(0, 3000)
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 300,
+    max_tokens: 150,
     messages: [
       {
         role: 'user',
