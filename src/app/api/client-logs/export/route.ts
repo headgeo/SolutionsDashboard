@@ -30,12 +30,15 @@ export async function GET(request: NextRequest) {
   )
 
   // Build CSV
-  const headers = ['Date Sent', 'Client', 'Client Type', 'Documents Sent', 'Sent By', 'Notes', 'Logged At']
+  const headers = ['Date Sent', 'Client', 'Client Type', 'Documents Sent', 'Custom Documents', 'Contacts', 'Folder Link', 'Sent By', 'Notes', 'Logged At']
   const rows = enriched.map((log: any) => [
     log.date_sent,
     log.client?.name || '',
     log.client?.type || '',
     (log.documents || []).map((d: any) => d.filename).join('; '),
+    (log.custom_documents || []).join('; '),
+    (log.contacts || []).join('; '),
+    log.folder_link || '',
     log.sender?.name || log.sender?.email || '',
     (log.notes || '').replace(/"/g, '""'),
     log.created_at,

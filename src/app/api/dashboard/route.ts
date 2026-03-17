@@ -13,6 +13,7 @@ export async function GET() {
     { data: recentDocs },
     { count: chunkCount },
     { data: recentLogs },
+    { data: allClients },
   ] = await Promise.all([
     supabase.from('documents').select('*', { count: 'exact', head: true }).neq('status', 'archived'),
     supabase.from('documents').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
@@ -29,13 +30,29 @@ export async function GET() {
       .select('*, client:client_id(name)')
       .order('date_sent', { ascending: false })
       .limit(5),
+    supabase.from('clients').select('name, stage, expected_aum, win_probability').order('name'),
   ])
+
+  // Pipeline summary
+  const stages = ['Lost Interest', 'Engaged', 'Expression of Interest', 'Unconfirmed Win', 'Won Funded']
+  const pipeline = stages.map((stage) => {
+    const stageClients = (allClients || []).filter((c: any) => c.stage === stage)
+    return {
+      stage,
+      count: stageClients.length,
+      totalAUM: stageClients.reduce((sum: number, c: any) => sum + (c.expected_aum || 0), 0),
+    }
+  })
+
+  const totalPipelineAUM = (allClients || []).reduce((sum: number, c: any) => sum + (c.expected_aum || 0), 0)
 
   return NextResponse.json({
     docCount: docCount ?? 0,
     approvedCount: approvedCount ?? 0,
     clientCount: clientCount ?? 0,
     chunkCount: chunkCount ?? 0,
+    totalPipelineAUM,
+    pipeline,
     recentDocs: (recentDocs || []).map((doc: any) => ({
       ...doc,
       client_name: doc.clients?.name || null,

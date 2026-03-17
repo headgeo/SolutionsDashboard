@@ -4,16 +4,40 @@ import { useState, useEffect } from 'react'
 import { formatDate } from '@/lib/utils'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { FileText, Search, Layers, BookUser, TrendingUp, Clock, Users } from 'lucide-react'
+import { FileText, Search, Layers, BookUser, TrendingUp, Clock, Users, DollarSign } from 'lucide-react'
 import Link from 'next/link'
+
+interface PipelineStage {
+  stage: string
+  count: number
+  totalAUM: number
+}
 
 interface DashboardData {
   docCount: number
   approvedCount: number
   clientCount: number
   chunkCount: number
+  totalPipelineAUM: number
+  pipeline: PipelineStage[]
   recentDocs: any[]
   recentLogs: any[]
+}
+
+function formatAUM(v: number): string {
+  if (!v) return '$0'
+  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`
+  return `$${v}`
+}
+
+const STAGE_COLORS: Record<string, string> = {
+  'Lost Interest': 'bg-red-400',
+  'Engaged': 'bg-blue-400',
+  'Expression of Interest': 'bg-yellow-400',
+  'Unconfirmed Win': 'bg-orange-400',
+  'Won Funded': 'bg-emerald-400',
 }
 
 export default function DashboardPage() {
@@ -58,12 +82,48 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Pipeline overview */}
+      {data && data.pipeline && (
+        <div className="mb-8 p-5 rounded-xl border border-surface-border bg-surface-subtle">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <DollarSign size={14} className="text-ink-faint" />
+              <h2 className="text-sm font-semibold text-ink">Pipeline Overview</h2>
+              <span className="text-xs text-ink-muted ml-2">{formatAUM(data.totalPipelineAUM)} total</span>
+            </div>
+            <Link href="/crm" className="text-xs text-accent hover:text-accent-hover transition-colors">
+              Open CRM
+            </Link>
+          </div>
+          <div className="flex gap-1 h-3 rounded-full overflow-hidden bg-surface-muted mb-3">
+            {data.pipeline.filter((s) => s.count > 0).map((s) => (
+              <div
+                key={s.stage}
+                className={`${STAGE_COLORS[s.stage] || 'bg-ink-faint'} transition-all`}
+                style={{ width: `${(s.count / Math.max(data.clientCount, 1)) * 100}%` }}
+                title={`${s.stage}: ${s.count} clients`}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {data.pipeline.map((s) => (
+              <div key={s.stage} className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${STAGE_COLORS[s.stage]}`} />
+                <span className="text-[10px] text-ink-muted">{s.stage}</span>
+                <span className="text-[10px] font-semibold text-ink">{s.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-4 gap-3 mb-8">
         {[
           { href: '/search', label: 'Search documents', desc: 'Find slides & passages', icon: Search, accent: true },
           { href: '/library', label: 'Browse library', desc: 'All uploaded materials', icon: FileText },
           { href: '/client-log', label: 'Client activity', desc: 'Log & track interactions', icon: BookUser },
+          { href: '/crm', label: 'CRM', desc: 'Manage pipeline & contacts', icon: Users },
         ].map(({ href, label, desc, icon: Icon, accent }) => (
           <Link
             key={href}

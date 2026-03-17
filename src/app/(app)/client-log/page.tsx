@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ClientLog } from '@/types'
 import { LogInteractionModal } from '@/components/clients/LogInteractionModal'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ToastContainer, useToast } from '@/components/ui/Toast'
-import { BookUser, Plus, Download, FileText, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { BookUser, Plus, Download, FileText, ChevronDown, ChevronUp, ExternalLink, Link2, Users, FolderOpen } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { CLIENT_TYPE_LABELS } from '@/types'
 
@@ -15,7 +16,8 @@ export default function ClientLogPage() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [filterClient, setFilterClient] = useState('')
+  const searchParams = useSearchParams()
+  const [filterClient, setFilterClient] = useState(searchParams.get('client') || '')
   const { toasts, dismiss, success, error } = useToast()
 
   const fetchLogs = useCallback(async () => {
@@ -182,38 +184,92 @@ export default function ClientLogPage() {
                       </td>
                     </tr>
 
-                    {/* Expanded docs row */}
-                    {expandedId === log.id && (log.documents?.length ?? 0) > 0 && (
+                    {/* Expanded details row */}
+                    {expandedId === log.id && (
                       <tr className={i < filtered.length - 1 ? 'border-b border-surface-border' : ''}>
-                        <td colSpan={6} className="px-4 py-3 bg-surface-muted/30">
-                          <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-2">Documents sent</p>
-                          <div className="flex flex-wrap gap-2">
-                            {log.documents?.map((doc: any) => {
-                              const typeColors: Record<string, string> = {
-                                pptx: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
-                                xlsx: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-                                docx: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-                                pdf: 'text-red-400 bg-red-400/10 border-red-400/20',
-                              }
-                              const colorClass = typeColors[doc.type] || 'text-ink-muted bg-surface-muted border-surface-border'
-                              return (
-                                <a
-                                  key={doc.id}
-                                  href={`/api/documents/${doc.id}/download`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border
-                                    hover:opacity-80 transition-opacity cursor-pointer ${colorClass}`}
-                                  title={`Download ${doc.filename}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <FileText size={11} />
-                                  <span className="max-w-[180px] truncate">{doc.filename}</span>
-                                  <ExternalLink size={9} className="opacity-60 shrink-0" />
-                                </a>
-                              )
-                            })}
-                          </div>
+                        <td colSpan={6} className="px-4 py-4 bg-surface-muted/30 space-y-3">
+                          {/* Contacts */}
+                          {((log as any).contacts?.length ?? 0) > 0 && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                <Users size={10} /> Contacts
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(log as any).contacts.map((c: string, j: number) => (
+                                  <span key={j} className="text-xs bg-accent/10 text-accent px-2.5 py-1 rounded-full">{c}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* System documents */}
+                          {(log.documents?.length ?? 0) > 0 && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-1.5">Documents sent</p>
+                              <div className="flex flex-wrap gap-2">
+                                {log.documents?.map((doc: any) => {
+                                  const typeColors: Record<string, string> = {
+                                    pptx: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+                                    xlsx: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+                                    docx: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                                    pdf: 'text-red-400 bg-red-400/10 border-red-400/20',
+                                  }
+                                  const colorClass = typeColors[doc.type] || 'text-ink-muted bg-surface-muted border-surface-border'
+                                  return (
+                                    <a
+                                      key={doc.id}
+                                      href={`/api/documents/${doc.id}/download`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border
+                                        hover:opacity-80 transition-opacity cursor-pointer ${colorClass}`}
+                                      title={`Download ${doc.filename}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <FileText size={11} />
+                                      <span className="max-w-[180px] truncate">{doc.filename}</span>
+                                      <ExternalLink size={9} className="opacity-60 shrink-0" />
+                                    </a>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Custom documents */}
+                          {((log as any).custom_documents?.length ?? 0) > 0 && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                <FolderOpen size={10} /> Other files
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(log as any).custom_documents.map((d: string, j: number) => (
+                                  <span key={j} className="flex items-center gap-1 text-xs bg-surface-muted text-ink px-2.5 py-1 rounded-full border border-surface-border">
+                                    <FileText size={10} className="text-ink-faint" /> {d}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Folder link */}
+                          {(log as any).folder_link && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                <Link2 size={10} /> Folder link
+                              </p>
+                              <a
+                                href={(log as any).folder_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-accent hover:text-accent-hover transition-colors flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {(log as any).folder_link}
+                                <ExternalLink size={9} />
+                              </a>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

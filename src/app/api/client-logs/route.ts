@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { client_id, new_client, document_ids, date_sent, notes } = body
+  const { client_id, new_client, document_ids, date_sent, notes, folder_link, contacts, custom_documents } = body
 
   let finalClientId = client_id
 
@@ -63,6 +63,9 @@ export async function POST(request: NextRequest) {
       sender_user_id: user.id,
       date_sent: date_sent || new Date().toISOString().split('T')[0],
       notes: notes || null,
+      folder_link: folder_link || null,
+      contacts: contacts || [],
+      custom_documents: custom_documents || [],
     })
     .select()
     .single()

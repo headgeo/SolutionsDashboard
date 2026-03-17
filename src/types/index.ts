@@ -60,15 +60,39 @@ export interface SlideImage {
   created_at: string
 }
 
+export type ClientStage = 'Lost Interest' | 'Engaged' | 'Expression of Interest' | 'Unconfirmed Win' | 'Won Funded'
+
+export interface ClientContact {
+  name: string
+  email?: string
+  phone?: string
+  role?: string
+}
+
 export interface Client {
   id: string
   name: string
   type: ClientType
   contact_email?: string
   notes?: string
+  industry?: string
+  expected_aum?: number
+  actual_aum?: number
+  stage?: ClientStage
+  win_probability?: number
+  contacts?: ClientContact[]
   document_count?: number
   last_interaction?: string
   created_at: string
+  updated_at?: string
+}
+
+export const CLIENT_STAGE_LABELS: Record<ClientStage, string> = {
+  'Lost Interest': 'Lost Interest',
+  'Engaged': 'Engaged',
+  'Expression of Interest': 'Expression of Interest',
+  'Unconfirmed Win': 'Unconfirmed Win',
+  'Won Funded': 'Won Funded',
 }
 
 export interface ClientLog {
@@ -81,6 +105,9 @@ export interface ClientLog {
   sender?: User
   date_sent: string
   notes?: string
+  folder_link?: string
+  contacts?: string[]
+  custom_documents?: string[]
   created_at: string
 }
 
