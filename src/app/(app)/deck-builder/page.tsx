@@ -71,7 +71,7 @@ export default function DeckBuilderPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${deckName.replace(/\s+/g, '_')}.pptx`
+      a.download = `${deckName.replace(/\s+/g, '_')}_manifest.json`
       a.click()
       URL.revokeObjectURL(url)
       success('Deck exported successfully.')
@@ -119,7 +119,7 @@ export default function DeckBuilderPage() {
             )}
             <Button onClick={handleExport} loading={exporting} disabled={slides.length === 0}>
               <Download size={14} />
-              Export .pptx
+              Export Manifest
             </Button>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function DeckBuilderPage() {
               </div>
               <Button onClick={handleExport} loading={exporting}>
                 <Download size={14} />
-                Export .pptx
+                Export Manifest
               </Button>
             </div>
           </>

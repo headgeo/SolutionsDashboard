@@ -40,7 +40,7 @@ export default function LibraryPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [filters, error])
 
   useEffect(() => { fetchDocs() }, [fetchDocs])
 

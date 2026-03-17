@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { ClientLog } from '@/types'
 import { LogInteractionModal } from '@/components/clients/LogInteractionModal'
 import { Button } from '@/components/ui/Button'
@@ -29,7 +29,7 @@ export default function ClientLogPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [error])
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
@@ -51,8 +51,8 @@ export default function ClientLogPage() {
 
   // Get unique clients for filter
   const uniqueClients = Array.from(
-    new Map(logs.map((l) => [l.client?.id, l.client]).filter(([id]) => id)).values()
-  ) as NonNullable<ClientLog['client']>[]
+    new Map(logs.filter((l) => l.client?.id).map((l) => [l.client!.id, l.client!] as const)).values()
+  )
 
   const filtered = filterClient
     ? logs.filter((l) => l.client?.id === filterClient)
@@ -139,9 +139,8 @@ export default function ClientLogPage() {
               </thead>
               <tbody>
                 {filtered.map((log, i) => (
-                  <>
+                  <Fragment key={log.id}>
                     <tr
-                      key={log.id}
                       className={`transition-colors hover:bg-surface-muted/40 cursor-pointer ${
                         i < filtered.length - 1 || expandedId === log.id ? 'border-b border-surface-border' : ''
                       }`}
@@ -178,7 +177,7 @@ export default function ClientLogPage() {
 
                     {/* Expanded docs row */}
                     {expandedId === log.id && (log.documents?.length ?? 0) > 0 && (
-                      <tr key={`${log.id}-expanded`} className={i < filtered.length - 1 ? 'border-b border-surface-border' : ''}>
+                      <tr className={i < filtered.length - 1 ? 'border-b border-surface-border' : ''}>
                         <td colSpan={6} className="px-4 py-3 bg-surface-muted/30">
                           <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-2">Documents sent</p>
                           <div className="flex flex-wrap gap-2">
@@ -192,7 +191,7 @@ export default function ClientLogPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
