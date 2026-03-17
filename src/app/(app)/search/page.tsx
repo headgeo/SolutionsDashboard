@@ -1,24 +1,26 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { SearchResult } from '@/types'
 import { SearchResultItem } from '@/components/search/SearchResultItem'
 import { PreviewPanel } from '@/components/search/PreviewPanel'
 import { Select } from '@/components/ui/Select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Search, Loader2, SlidersHorizontal, X } from 'lucide-react'
-import { PRODUCT_TYPES, STATUS_OPTIONS, DOC_TYPES } from '@/lib/constants'
+import { STATUS_OPTIONS, DOC_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 const EXAMPLE_QUERIES = [
-  'How does a worst-of autocallable work?',
-  'Capital protected note payoff explanation',
-  'Autocallable barrier observation dates',
-  'Leverage certificate product summary',
-  'Credit linked note risk factors',
+  'Client presentation materials',
+  'Term sheet template',
+  'Risk factor disclosures',
+  'Market commentary latest',
+  'Pricing model overview',
 ]
 
 const ALL = { value: '', label: 'All' }
+
+interface ClientOption { id: string; name: string }
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -28,8 +30,15 @@ export default function SearchPage() {
   const [selected, setSelected] = useState<SearchResult | null>(null)
   const [deckSlides, setDeckSlides] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState({ status: '', type: '', product_type: '' })
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [filters, setFilters] = useState({ status: '', type: '', client_id: '' })
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch('/api/clients').then(r => r.json()).then(data => {
+      setClients(data.clients || [])
+    }).catch(() => {})
+  }, [])
 
   const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) return
@@ -59,7 +68,6 @@ export default function SearchPage() {
       const next = new Set(prev)
       if (next.has(chunkId)) next.delete(chunkId)
       else next.add(chunkId)
-      // Persist to sessionStorage for deck builder
       const stored = JSON.parse(sessionStorage.getItem('deckSlides') || '[]')
       if (next.has(chunkId)) {
         if (!stored.includes(chunkId)) stored.push(chunkId)
@@ -78,7 +86,7 @@ export default function SearchPage() {
     <div className="flex flex-col h-screen overflow-hidden animate-fade-in">
       {/* Search header */}
       <div className="px-8 pt-8 pb-4 border-b border-surface-border bg-surface shrink-0">
-        <h1 className="text-2xl font-semibold text-ink mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+        <h1 className="text-2xl font-semibold text-ink mb-4">
           Search
         </h1>
 
@@ -90,7 +98,7 @@ export default function SearchPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. How does a worst-of autocallable work?"
+              placeholder="Search documents, slides, and passages..."
               className="w-full pl-11 pr-4 py-3 rounded-xl text-sm text-ink placeholder-ink-faint
                          bg-surface-muted border border-surface-border
                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors"
@@ -131,11 +139,12 @@ export default function SearchPage() {
                 onChange={(e) => setFilters({ ...filters, type: e.target.value })} placeholder="File type" />
             </div>
             <div className="w-52">
-              <Select options={[ALL, ...PRODUCT_TYPES]} value={filters.product_type}
-                onChange={(e) => setFilters({ ...filters, product_type: e.target.value })} placeholder="Product type" />
+              <Select options={[ALL, ...clients.map(c => ({ value: c.id, label: c.name }))]}
+                value={filters.client_id}
+                onChange={(e) => setFilters({ ...filters, client_id: e.target.value })} placeholder="Client" />
             </div>
             {hasFilters && (
-              <button onClick={() => setFilters({ status: '', type: '', product_type: '' })}
+              <button onClick={() => setFilters({ status: '', type: '', client_id: '' })}
                 className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors self-center">
                 <X size={12} /> Clear filters
               </button>
@@ -167,7 +176,7 @@ export default function SearchPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 size={22} className="text-accent animate-spin" />
-              <p className="text-sm text-ink-muted">Searching knowledge base…</p>
+              <p className="text-sm text-ink-muted">Searching knowledge base...</p>
             </div>
           ) : !searched ? (
             <EmptyState
@@ -184,7 +193,7 @@ export default function SearchPage() {
           ) : (
             <>
               <p className="text-xs text-ink-faint px-1 pb-1">
-                {results.length} result{results.length !== 1 ? 's' : ''} — verbatim extracts ranked by relevance
+                {results.length} result{results.length !== 1 ? 's' : ''} — ranked by relevance
               </p>
               {results.map((result) => (
                 <SearchResultItem
@@ -219,7 +228,7 @@ export default function SearchPage() {
           </span>
           <span className="text-sm text-ink">slide{deckSlides.size !== 1 ? 's' : ''} in deck</span>
           <a href="/deck-builder" className="text-sm text-accent hover:text-accent-hover font-medium transition-colors">
-            Open Deck Builder →
+            Open Deck Builder
           </a>
         </div>
       )}

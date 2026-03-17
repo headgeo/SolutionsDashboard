@@ -1,15 +1,4 @@
-import { ProductType, ClientType, ContentType, DocumentType, DocumentStatus } from '@/types'
-
-export const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
-  { value: 'autocallable', label: 'Autocallable' },
-  { value: 'capital_protected_note', label: 'Capital Protected Note' },
-  { value: 'barrier_reverse_convertible', label: 'Barrier Reverse Convertible' },
-  { value: 'worst_of_best_of', label: 'Worst-of / Best-of' },
-  { value: 'leverage_certificate', label: 'Leverage Certificate' },
-  { value: 'interest_rate_structured', label: 'Interest Rate Structured' },
-  { value: 'credit_linked_note', label: 'Credit-Linked Note' },
-  { value: 'other', label: 'Other / Custom' },
-]
+import { ClientType, ContentType, DocumentType, DocumentStatus } from '@/types'
 
 export const CLIENT_TYPES: { value: ClientType; label: string }[] = [
   { value: 'institutional', label: 'Institutional' },

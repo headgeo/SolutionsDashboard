@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   const status = searchParams.get('status') || null
   const type = searchParams.get('type') || null
-  const product_type = searchParams.get('product_type') || null
+  const client_id = searchParams.get('client_id') || null
 
   // Get query embedding
   const embedding = await getQueryEmbedding(query)
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       match_count: SEARCH_RESULT_COUNT,
       filter_status: status,
       filter_doc_type: type,
-      filter_product_type: product_type,
+      filter_client_id: client_id,
     })
 
     if (!error && data) {
@@ -62,13 +62,13 @@ export async function GET(request: NextRequest) {
           id: row.document_id,
           filename: row.filename,
           type: row.doc_type,
-          product_type: row.product_type,
           client_type: row.client_type,
           content_type: row.content_type,
           status: row.status,
           upload_date: row.upload_date,
           storage_url: row.storage_url,
           thumbnail_url: row.thumbnail_url,
+          client_name: row.client_name || null,
         },
         similarity: row.similarity,
         slide_image: null,

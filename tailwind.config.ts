@@ -15,29 +15,29 @@ const config: Config = {
       },
       colors: {
         surface: {
-          DEFAULT: '#0f1117',
-          subtle: '#161922',
-          muted: '#1d2230',
-          border: '#252b3b',
+          DEFAULT: 'var(--surface)',
+          subtle: 'var(--surface-subtle)',
+          muted: 'var(--surface-muted)',
+          border: 'var(--surface-border)',
         },
         ink: {
-          DEFAULT: '#e8eaf0',
-          muted: '#8892a4',
-          faint: '#4a5366',
+          DEFAULT: 'var(--ink)',
+          muted: 'var(--ink-muted)',
+          faint: 'var(--ink-faint)',
         },
         accent: {
-          DEFAULT: '#4f7fff',
-          hover: '#3d6ef0',
-          muted: '#1a2f5e',
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          muted: 'var(--accent-muted)',
         },
         status: {
-          approved: '#22c55e',
-          draft: '#f59e0b',
-          archived: '#6b7280',
+          approved: 'var(--status-approved)',
+          draft: 'var(--status-draft)',
+          archived: 'var(--status-archived)',
         },
       },
       backgroundImage: {
-        'grid-pattern': 'radial-gradient(circle, #252b3b 1px, transparent 1px)',
+        'grid-pattern': 'radial-gradient(circle, var(--surface-border) 1px, transparent 1px)',
       },
       backgroundSize: {
         'grid': '28px 28px',

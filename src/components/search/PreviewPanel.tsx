@@ -4,9 +4,9 @@ import { SearchResult } from '@/types'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
-import { PRODUCT_TYPE_LABELS, CLIENT_TYPE_LABELS, CONTENT_TYPE_LABELS } from '@/types'
+import { CLIENT_TYPE_LABELS, CONTENT_TYPE_LABELS } from '@/types'
 import { formatDate } from '@/lib/utils'
-import { Download, Plus, Check, FileText } from 'lucide-react'
+import { Download, Plus, Check, FileText, Users } from 'lucide-react'
 
 interface PreviewPanelProps {
   result: SearchResult | null
@@ -44,11 +44,16 @@ export function PreviewPanel({ result, inDeck, onAddToDeck }: PreviewPanelProps)
           <StatusBadge status={doc.status} />
         </div>
         <div className="flex flex-wrap gap-2">
+          {doc.client_name && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-400 flex items-center gap-1">
+              <Users size={8} />
+              {doc.client_name}
+            </span>
+          )}
           {[
-            PRODUCT_TYPE_LABELS[doc.product_type],
             CLIENT_TYPE_LABELS[doc.client_type],
             CONTENT_TYPE_LABELS[doc.content_type],
-          ].map((label) => (
+          ].filter(Boolean).map((label) => (
             <span key={label} className="text-[10px] px-2 py-0.5 rounded-full bg-surface-muted text-ink-muted">
               {label}
             </span>

@@ -1,10 +1,10 @@
 'use client'
 
-import { Document, PRODUCT_TYPE_LABELS, CLIENT_TYPE_LABELS, CONTENT_TYPE_LABELS } from '@/types'
+import { Document, CLIENT_TYPE_LABELS, CONTENT_TYPE_LABELS } from '@/types'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@/lib/utils'
-import { Download, MoreVertical, Archive, CheckCircle, Trash2 } from 'lucide-react'
+import { Download, MoreVertical, Archive, CheckCircle, Trash2, Users } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface DocumentCardProps {
@@ -88,9 +88,12 @@ export function DocumentCard({ document: doc, isAdmin, onStatusChange, onDelete 
 
       {/* Tags */}
       <div className="flex flex-wrap gap-1.5">
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-muted text-ink-muted">
-          {PRODUCT_TYPE_LABELS[doc.product_type]}
-        </span>
+        {doc.client_name && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-400 flex items-center gap-1">
+            <Users size={8} />
+            {doc.client_name}
+          </span>
+        )}
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-muted text-ink-muted">
           {CONTENT_TYPE_LABELS[doc.content_type]}
         </span>

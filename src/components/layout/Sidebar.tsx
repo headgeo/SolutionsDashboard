@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/lib/theme'
 import {
   LayoutDashboard,
   Library,
@@ -12,6 +13,8 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -32,9 +35,10 @@ interface SidebarProps {
 export function Sidebar({ userEmail, userName, isAdmin }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
+  const { theme, toggle } = useTheme()
 
   const handleSignOut = async () => {
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/auth/login')
   }
@@ -99,6 +103,15 @@ export function Sidebar({ userEmail, userName, isAdmin }: SidebarProps) {
 
       {/* User footer */}
       <div className="px-3 py-3 border-t border-surface-border">
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sm text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-150 mb-1"
+        >
+          {theme === 'dark' ? <Sun size={14} className="text-ink-faint" /> : <Moon size={14} className="text-ink-faint" />}
+          <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        </button>
+
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
           <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
             <span className="text-accent text-xs font-semibold">

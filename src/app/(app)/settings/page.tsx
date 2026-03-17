@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Users, Tag, Shield } from 'lucide-react'
+import { Users, Tag, Shield, BookUser } from 'lucide-react'
 
 export default async function SettingsPage() {
   const supabase = createClient()
@@ -10,12 +10,20 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  const { data: users } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+  const [
+    { data: users },
+    { count: clientCount },
+    { count: docCount },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+    supabase.from('clients').select('*', { count: 'exact', head: true }),
+    supabase.from('documents').select('*', { count: 'exact', head: true }),
+  ])
 
   return (
     <div className="p-8 max-w-3xl mx-auto animate-fade-in">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+        <h1 className="text-2xl font-semibold text-ink">
           Settings
         </h1>
         <p className="text-sm text-ink-muted mt-0.5">Admin configuration — internal use only</p>
@@ -71,23 +79,17 @@ export default async function SettingsPage() {
         </div>
       </section>
 
-      {/* Taxonomy */}
+      {/* Overview */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Tag size={15} className="text-ink-faint" />
-          <h2 className="text-sm font-semibold text-ink">Taxonomy</h2>
+          <h2 className="text-sm font-semibold text-ink">System Overview</h2>
         </div>
         <div className="rounded-xl border border-surface-border bg-surface-subtle p-5">
-          <p className="text-xs text-ink-muted mb-4">
-            Product types, client types, and content types are configured in{' '}
-            <code className="text-accent text-[11px] bg-accent/10 px-1.5 py-0.5 rounded">
-              src/lib/constants/index.ts
-            </code>
-          </p>
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Product Types', count: 8 },
-              { label: 'Client Types', count: 4 },
+              { label: 'Documents', count: docCount ?? 0 },
+              { label: 'Clients', count: clientCount ?? 0 },
               { label: 'Content Types', count: 7 },
             ].map(({ label, count }) => (
               <div key={label} className="p-3 rounded-lg bg-surface-muted border border-surface-border text-center">
