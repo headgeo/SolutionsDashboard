@@ -10,6 +10,7 @@ import {
   Search,
   Layers,
   BookUser,
+  Users,
   Settings,
   LogOut,
   ChevronRight,
@@ -24,6 +25,7 @@ const NAV = [
   { href: '/search', label: 'Search', icon: Search },
   { href: '/deck-builder', label: 'Deck Builder', icon: Layers },
   { href: '/client-log', label: 'Client Log', icon: BookUser },
+  { href: '/crm', label: 'CRM', icon: Users },
 ]
 
 interface SidebarProps {

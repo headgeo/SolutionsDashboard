@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { formatDate } from '@/lib/utils'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { FileText, Search, Layers, BookUser, TrendingUp, Clock, Users } from 'lucide-react'
+import { FileText, Search, BookUser, TrendingUp, Clock, Users } from 'lucide-react'
 import Link from 'next/link'
 
 interface DashboardData {
@@ -59,11 +59,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-4 gap-3 mb-8">
         {[
           { href: '/search', label: 'Search documents', desc: 'Find slides & passages', icon: Search, accent: true },
           { href: '/library', label: 'Browse library', desc: 'All uploaded materials', icon: FileText },
           { href: '/client-log', label: 'Client activity', desc: 'Log & track interactions', icon: BookUser },
+          { href: '/crm', label: 'CRM', desc: 'Manage pipeline & contacts', icon: Users },
         ].map(({ href, label, desc, icon: Icon, accent }) => (
           <Link
             key={href}
