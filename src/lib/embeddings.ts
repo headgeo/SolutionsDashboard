@@ -10,7 +10,7 @@ const GEMINI_MODEL = 'text-embedding-004'
 function getGeminiUrl(taskType?: string): string {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is not set')
-  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:embedContent?key=${key}`
+  return `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:embedContent?key=${key}`
 }
 
 export async function getEmbedding(text: string): Promise<number[]> {

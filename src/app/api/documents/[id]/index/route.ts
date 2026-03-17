@@ -8,20 +8,44 @@ async function parseAndChunk(
   filename: string,
   type: string
 ): Promise<{ content: string; slide_number?: number; page_number?: number }[]> {
-  // In production, use python-pptx / PyMuPDF via a Python microservice or Supabase Edge Function.
-  // This is a simplified text extraction placeholder.
-  const decoder = new TextDecoder('utf-8', { fatal: false })
-  const raw = decoder.decode(file)
+  // For binary formats (pptx, xlsx, docx) we extract text strings from the raw bytes.
+  // These are ZIP-based XML formats; readable strings can be pulled out.
+  const bytes = new Uint8Array(file)
+  let raw = ''
+
+  if (type === 'pdf') {
+    // PDF: decode as latin1 to preserve all bytes, then extract text between BT/ET markers
+    raw = Array.from(bytes).map(b => String.fromCharCode(b)).join('')
+    const textMatches = raw.match(/\(([^)]{2,})\)/g) || []
+    raw = textMatches
+      .map(m => m.slice(1, -1))
+      .filter(s => /[a-zA-Z]{2,}/.test(s))
+      .join('\n')
+  } else {
+    // PPTX/DOCX/XLSX: ZIP-based XML — extract XML text content
+    // Decode as UTF-8 (non-fatal), then pull text from XML tags
+    const decoder = new TextDecoder('utf-8', { fatal: false })
+    const decoded = decoder.decode(file)
+    // Extract text content from XML tags like <a:t>text</a:t> or <t>text</t>
+    const xmlTextMatches = decoded.match(/<[a-z]:t[^>]*>([^<]+)<\/[a-z]:t>/gi) || []
+    const plainMatches = decoded.match(/<t[^>]*>([^<]+)<\/t>/gi) || []
+    const allMatches = [...xmlTextMatches, ...plainMatches]
+    raw = allMatches
+      .map(m => m.replace(/<[^>]+>/g, '').trim())
+      .filter(s => s.length > 0)
+      .join('\n')
+  }
 
   // Basic chunking: split on double newlines, filter empties
   const chunks = raw
     .split(/\n{2,}/)
     .map((c) => c.trim())
-    .filter((c) => c.length > 40)
+    .filter((c) => c.length > 20)
     .slice(0, 200) // safety limit
 
   if (chunks.length === 0) {
-    return [{ content: `Document: ${filename}` }]
+    // Fallback: create a single chunk with the filename
+    return [{ content: `Document: ${filename} (${type} file)` }]
   }
 
   return chunks.map((content, i) => ({
@@ -89,14 +113,16 @@ export async function POST(
       console.warn('Summary generation failed:', e)
     }
 
-    // Update chunk count and summary on document
+    // Update chunk count on document
+    const updateData: any = {
+      chunk_count: insertedCount,
+      updated_at: new Date().toISOString(),
+    }
+    if (summary) updateData.summary = summary
+
     await supabase
       .from('documents')
-      .update({
-        chunk_count: insertedCount,
-        summary: summary || undefined,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', doc.id)
 
     return NextResponse.json({ success: true, chunks: insertedCount, summary })
