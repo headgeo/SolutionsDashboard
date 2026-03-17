@@ -1,23 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { SEARCH_RESULT_COUNT, SIMILARITY_THRESHOLD } from '@/lib/constants'
-
-async function getQueryEmbedding(query: string): Promise<number[] | null> {
-  if (!process.env.OPENAI_API_KEY) return null
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-3-small',
-      input: query.slice(0, 1000),
-    }),
-  })
-  const data = await res.json()
-  return data.data?.[0]?.embedding || null
-}
+import { getQueryEmbedding } from '@/lib/embeddings'
 
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -32,7 +16,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') || null
   const client_id = searchParams.get('client_id') || null
 
-  // Get query embedding
+  // Get query embedding via Google Gemini
   const embedding = await getQueryEmbedding(query)
 
   let results: any[] = []
@@ -75,12 +59,21 @@ export async function GET(request: NextRequest) {
       }))
     }
   } else {
-    // Fallback: full-text search if no OpenAI key
+    // Fallback: ilike search if no Gemini API key or embedding failed
+    const words = query.trim().split(/\s+/).filter(Boolean)
     let q = supabase
       .from('chunks')
-      .select('*, documents(*)')
-      .textSearch('content_text', query.split(' ').join(' | '))
+      .select('*, documents!inner(*, clients:client_id(name))')
       .limit(SEARCH_RESULT_COUNT)
+
+    // Filter by each word using ilike
+    for (const word of words.slice(0, 3)) {
+      q = q.ilike('content_text', `%${word}%`)
+    }
+
+    if (status) q = q.eq('documents.status', status)
+    if (type) q = q.eq('documents.type', type)
+    if (client_id) q = q.eq('documents.client_id', client_id)
 
     const { data } = await q
     if (data) {
@@ -93,7 +86,10 @@ export async function GET(request: NextRequest) {
           slide_number: chunk.slide_number,
           page_number: chunk.page_number,
         },
-        document: chunk.documents,
+        document: {
+          ...chunk.documents,
+          client_name: chunk.documents?.clients?.name || null,
+        },
         similarity: 0.5,
         slide_image: null,
       }))

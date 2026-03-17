@@ -37,65 +37,84 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const formData = await request.formData()
-  const file = formData.get('file') as File
-  const client_id = formData.get('client_id') as string
-  const client_type = formData.get('client_type') as string
-  const content_type = formData.get('content_type') as string
-  const status = formData.get('status') as string || 'draft'
-  const upload_date = formData.get('upload_date') as string
-  const author = formData.get('author') as string
+    // Ensure profile exists (required by documents.uploader foreign key)
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      role: 'user',
+    }, { onConflict: 'id', ignoreDuplicates: true })
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const client_id = formData.get('client_id') as string
+    const client_type = formData.get('client_type') as string
+    const content_type = formData.get('content_type') as string
+    const status = formData.get('status') as string || 'draft'
+    const upload_date = formData.get('upload_date') as string
+    const author = formData.get('author') as string
 
-  const ext = file.name.split('.').pop()?.toLowerCase()
-  if (!['pptx', 'xlsx', 'docx', 'pdf'].includes(ext || '')) {
-    return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!['pptx', 'xlsx', 'docx', 'pdf'].includes(ext || '')) {
+      return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
+    }
+
+    // Upload file to Supabase Storage
+    const filePath = `${user.id}/${Date.now()}_${file.name}`
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(filePath, file, { contentType: file.type })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      return NextResponse.json({ error: `Storage: ${uploadError.message}` }, { status: 500 })
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath)
+
+    // Create document record
+    const insertData: any = {
+      filename: file.name,
+      type: ext,
+      upload_date: upload_date || new Date().toISOString().split('T')[0],
+      uploader: user.id,
+      client_type: client_type || 'institutional',
+      content_type: content_type || 'pitch_deck',
+      status,
+      storage_url: publicUrl,
+    }
+
+    if (client_id) {
+      insertData.client_id = client_id
+    }
+
+    const { data: doc, error: docError } = await supabase
+      .from('documents')
+      .insert(insertData)
+      .select()
+      .single()
+
+    if (docError) {
+      console.error('Document insert error:', docError)
+      return NextResponse.json({ error: `Database: ${docError.message}` }, { status: 500 })
+    }
+
+    // Trigger async indexing (fire and forget)
+    fetch(`${request.nextUrl.origin}/api/documents/${doc.id}/index`, {
+      method: 'POST',
+      headers: { 'Cookie': request.headers.get('cookie') || '' },
+    }).catch(() => {})
+
+    return NextResponse.json({ document: doc }, { status: 201 })
+  } catch (err: any) {
+    console.error('Upload error:', err)
+    return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 })
   }
-
-  // Upload file to Supabase Storage
-  const filePath = `${user.id}/${Date.now()}_${file.name}`
-  const { error: uploadError } = await supabase.storage
-    .from('documents')
-    .upload(filePath, file, { contentType: file.type })
-
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
-
-  const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath)
-
-  // Create document record
-  const insertData: any = {
-    filename: file.name,
-    type: ext,
-    upload_date: upload_date || new Date().toISOString().split('T')[0],
-    uploader: user.id,
-    client_type: client_type || 'institutional',
-    content_type,
-    status,
-    storage_url: publicUrl,
-  }
-
-  if (client_id) {
-    insertData.client_id = client_id
-  }
-
-  const { data: doc, error: docError } = await supabase
-    .from('documents')
-    .insert(insertData)
-    .select()
-    .single()
-
-  if (docError) return NextResponse.json({ error: docError.message }, { status: 500 })
-
-  // Trigger async indexing (fire and forget)
-  fetch(`${request.nextUrl.origin}/api/documents/${doc.id}/index`, {
-    method: 'POST',
-    headers: { 'Cookie': request.headers.get('cookie') || '' },
-  }).catch(() => {})
-
-  return NextResponse.json({ document: doc }, { status: 201 })
 }

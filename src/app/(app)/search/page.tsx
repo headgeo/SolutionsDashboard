@@ -6,7 +6,7 @@ import { SearchResultItem } from '@/components/search/SearchResultItem'
 import { PreviewPanel } from '@/components/search/PreviewPanel'
 import { Select } from '@/components/ui/Select'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Search, Loader2, SlidersHorizontal, X } from 'lucide-react'
+import { Search, Loader2, SlidersHorizontal, X, Sparkles } from 'lucide-react'
 import { STATUS_OPTIONS, DOC_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +32,8 @@ export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [clients, setClients] = useState<ClientOption[]>([])
   const [filters, setFilters] = useState({ status: '', type: '', client_id: '' })
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -45,12 +47,33 @@ export default function SearchPage() {
     setLoading(true)
     setSearched(true)
     setSelected(null)
+    setAiAnswer(null)
     try {
       const params = new URLSearchParams({ query: q })
       Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v) })
       const res = await fetch(`/api/search?${params}`)
       const data = await res.json()
-      setResults(data.results || [])
+      const searchResults = data.results || []
+      setResults(searchResults)
+
+      // Request AI answer in background (non-blocking)
+      if (searchResults.length > 0) {
+        setAiLoading(true)
+        const topChunks = searchResults.slice(0, 5).map((r: any) => ({
+          content: r.chunk.content_text,
+          filename: r.document.filename,
+          slide_number: r.chunk.slide_number,
+        }))
+        fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, chunks: topChunks }),
+        })
+          .then(r => r.json())
+          .then(data => setAiAnswer(data.answer || null))
+          .catch(() => {})
+          .finally(() => setAiLoading(false))
+      }
     } catch {
       setResults([])
     } finally {
@@ -173,6 +196,24 @@ export default function SearchPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Results list */}
         <div className="w-[420px] shrink-0 border-r border-surface-border overflow-y-auto p-4 space-y-2.5">
+          {/* AI Answer */}
+          {(aiLoading || aiAnswer) && (
+            <div className="p-4 rounded-xl border border-accent/20 bg-accent/5 mb-3 animate-fade-in">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={14} className="text-accent" />
+                <span className="text-xs font-semibold text-accent uppercase tracking-wide">AI Answer</span>
+              </div>
+              {aiLoading ? (
+                <div className="flex items-center gap-2 text-sm text-ink-muted">
+                  <Loader2 size={14} className="animate-spin" />
+                  Generating answer...
+                </div>
+              ) : (
+                <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{aiAnswer}</p>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 size={22} className="text-accent animate-spin" />

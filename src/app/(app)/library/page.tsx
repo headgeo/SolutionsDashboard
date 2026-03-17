@@ -81,6 +81,19 @@ export default function LibraryPage() {
     }
   }
 
+  const handleReindex = async (id: string) => {
+    try {
+      success('Re-indexing document...')
+      const res = await fetch(`/api/documents/${id}/index`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Re-index failed')
+      success(`Re-indexed: ${data.chunks} chunks created.`)
+      fetchDocs()
+    } catch (e: any) {
+      error(e.message || 'Failed to re-index document.')
+    }
+  }
+
   const clearFilters = () => setFilters({ status: '', type: '', client_id: '', client_type: '' })
   const hasFilters = Object.values(filters).some(Boolean)
 
@@ -185,6 +198,7 @@ export default function LibraryPage() {
                 isAdmin={isAdmin}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                onReindex={handleReindex}
               />
             ))}
           </div>

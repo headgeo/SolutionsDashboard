@@ -35,6 +35,7 @@ export interface Document {
   storage_url: string
   thumbnail_url?: string
   chunk_count?: number
+  summary?: string
   created_at: string
   updated_at: string
 }
