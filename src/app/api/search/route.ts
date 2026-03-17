@@ -59,12 +59,21 @@ export async function GET(request: NextRequest) {
       }))
     }
   } else {
-    // Fallback: full-text search if no Gemini API key
-    const q = supabase
+    // Fallback: ilike search if no Gemini API key or embedding failed
+    const words = query.trim().split(/\s+/).filter(Boolean)
+    let q = supabase
       .from('chunks')
-      .select('*, documents(*, clients:client_id(name))')
-      .textSearch('content_text', query.split(' ').join(' | '))
+      .select('*, documents!inner(*, clients:client_id(name))')
       .limit(SEARCH_RESULT_COUNT)
+
+    // Filter by each word using ilike
+    for (const word of words.slice(0, 3)) {
+      q = q.ilike('content_text', `%${word}%`)
+    }
+
+    if (status) q = q.eq('documents.status', status)
+    if (type) q = q.eq('documents.type', type)
+    if (client_id) q = q.eq('documents.client_id', client_id)
 
     const { data } = await q
     if (data) {

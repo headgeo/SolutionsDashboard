@@ -4,7 +4,7 @@ import { Document, CLIENT_TYPE_LABELS, CONTENT_TYPE_LABELS } from '@/types'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@/lib/utils'
-import { Download, MoreVertical, Archive, CheckCircle, Trash2, Users } from 'lucide-react'
+import { Download, MoreVertical, Archive, CheckCircle, Trash2, Users, RefreshCw } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface DocumentCardProps {
@@ -12,9 +12,10 @@ interface DocumentCardProps {
   isAdmin?: boolean
   onStatusChange?: (id: string, status: Document['status']) => void
   onDelete?: (id: string) => void
+  onReindex?: (id: string) => void
 }
 
-export function DocumentCard({ document: doc, isAdmin, onStatusChange, onDelete }: DocumentCardProps) {
+export function DocumentCard({ document: doc, isAdmin, onStatusChange, onDelete, onReindex }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -67,6 +68,12 @@ export function DocumentCard({ document: doc, isAdmin, onStatusChange, onDelete 
                       <Archive size={12} /> Archive
                     </button>
                   )}
+                  <button
+                    onClick={() => { onReindex?.(doc.id); setMenuOpen(false) }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-ink-muted hover:text-accent hover:bg-surface-muted transition-colors"
+                  >
+                    <RefreshCw size={12} /> Re-index
+                  </button>
                   <div className="border-t border-surface-border my-1" />
                   <button
                     onClick={() => { onDelete?.(doc.id); setMenuOpen(false) }}
