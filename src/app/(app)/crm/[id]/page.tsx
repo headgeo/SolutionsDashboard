@@ -38,15 +38,22 @@ function WinProbabilitySlider({ value, onChange }: { value: number; onChange: (v
   const r = value < 50 ? 255 : Math.round(255 - (value - 50) * 5.1)
   const g = value > 50 ? 200 : Math.round(value * 4)
   const color = `rgb(${r}, ${g}, 60)`
+  const sliderId = 'win-prob-slider'
 
   return (
     <div className="flex items-center gap-3">
+      <style>{`
+        #${sliderId}::-webkit-slider-thumb { background-color: ${color}; }
+        #${sliderId}::-moz-range-thumb { background-color: ${color}; border: 2px solid white; }
+      `}</style>
       <input
+        id={sliderId}
         type="range" min={0} max={100} value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="flex-1 h-2 appearance-none rounded-full bg-surface-muted cursor-pointer
-                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow"
+        className="flex-1 h-2 appearance-none rounded-full cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                   [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md
+                   [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-md"
         style={{ background: `linear-gradient(to right, ${color} ${value}%, var(--color-surface-muted) ${value}%)` }}
       />
       <span className="text-sm font-semibold tabular-nums w-10 text-right" style={{ color }}>{value}%</span>

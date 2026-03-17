@@ -68,6 +68,7 @@ export default function CRMPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStage, setFilterStage] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'win_prob' | 'name'>('win_prob')
   const [showAddModal, setShowAddModal] = useState(false)
   const { toasts, dismiss, success, error } = useToast()
 
@@ -131,17 +132,22 @@ export default function CRMPage() {
     setNewContactForm({ name: '', email: '', phone: '', role: '' })
   }
 
-  // Filtering
-  const filtered = clients.filter((c) => {
-    if (filterStage && c.stage !== filterStage) return false
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      return c.name.toLowerCase().includes(q) ||
-        (c.industry || '').toLowerCase().includes(q) ||
-        (c.contact_email || '').toLowerCase().includes(q)
-    }
-    return true
-  })
+  // Filtering and sorting
+  const filtered = clients
+    .filter((c) => {
+      if (filterStage && c.stage !== filterStage) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        return c.name.toLowerCase().includes(q) ||
+          (c.industry || '').toLowerCase().includes(q) ||
+          (c.contact_email || '').toLowerCase().includes(q)
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'win_prob') return (b.win_probability ?? 50) - (a.win_probability ?? 50)
+      return a.name.localeCompare(b.name)
+    })
 
   // Pipeline summary
   const pipelineSummary = STAGES.map((s) => {
@@ -207,17 +213,37 @@ export default function CRMPage() {
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative mb-5">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search clients, industry..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-ink placeholder-ink-faint
-                       bg-surface-subtle border border-surface-border
-                       focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors"
-          />
+        {/* Search + Sort */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search clients, industry..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-ink placeholder-ink-faint
+                         bg-surface-subtle border border-surface-border
+                         focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors"
+            />
+          </div>
+          <div className="flex items-center rounded-xl border border-surface-border bg-surface-subtle overflow-hidden shrink-0">
+            <button
+              onClick={() => setSortBy('win_prob')}
+              className={`px-3 py-2.5 text-xs font-medium transition-colors ${
+                sortBy === 'win_prob' ? 'bg-accent/10 text-accent' : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              Win Prob %
+            </button>
+            <button
+              onClick={() => setSortBy('name')}
+              className={`px-3 py-2.5 text-xs font-medium transition-colors ${
+                sortBy === 'name' ? 'bg-accent/10 text-accent' : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              A–Z
+            </button>
+          </div>
         </div>
 
         {/* Client list */}
