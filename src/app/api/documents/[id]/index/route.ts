@@ -63,7 +63,7 @@ export async function POST(
     // Generate embeddings and insert chunks
     let insertedCount = 0
     for (const chunk of chunks) {
-      if (!process.env.VOYAGE_API_KEY) break // skip embedding if no key
+      if (!process.env.GEMINI_API_KEY) break // skip embedding if no key
       const embedding = await getEmbedding(chunk.content)
       const chunkType = doc.type === 'pptx' ? 'slide' : doc.type === 'xlsx' ? 'section' : 'paragraph'
 

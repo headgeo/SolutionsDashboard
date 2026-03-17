@@ -1,4 +1,4 @@
--- Migration 002: Add client association + switch to Voyage AI embeddings (512-dim)
+-- Migration 002: Add client association + switch to Google Gemini embeddings (768-dim)
 --
 -- Run this in the Supabase SQL editor after migration 001.
 -- If you have existing data with 1536-dim embeddings, you'll need to re-index documents.
@@ -14,17 +14,17 @@ ALTER TABLE clients
   ADD COLUMN IF NOT EXISTS contact_email text,
   ADD COLUMN IF NOT EXISTS notes text;
 
--- 3. Update vector dimension from 1536 (OpenAI) to 512 (Voyage voyage-3-lite)
+-- 3. Update vector dimension from 1536 (OpenAI) to 768 (Google Gemini text-embedding-004)
 -- Drop old index and column, recreate with new dimension
 -- WARNING: This deletes all existing embeddings. Re-index documents after running.
 DROP INDEX IF EXISTS chunks_embedding_idx;
 ALTER TABLE public.chunks DROP COLUMN IF EXISTS embedding;
-ALTER TABLE public.chunks ADD COLUMN embedding vector(512);
+ALTER TABLE public.chunks ADD COLUMN embedding vector(768);
 CREATE INDEX ON public.chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- 4. Update the search_chunks function for client_id filter and new schema
 CREATE OR REPLACE FUNCTION search_chunks(
-  query_embedding vector(512),
+  query_embedding vector(768),
   match_threshold FLOAT DEFAULT 0.5,
   match_count INT DEFAULT 10,
   filter_status TEXT DEFAULT NULL,

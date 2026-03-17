@@ -1,65 +1,60 @@
 /**
- * Embedding utility using Voyage AI (Anthropic's recommended embedding provider).
+ * Embedding utility using Google Gemini (text-embedding-004).
  *
- * Voyage AI produces high-quality embeddings optimized for retrieval.
- * Model: voyage-3-lite (512 dimensions) — fast, cost-effective
- *
- * API docs: https://docs.voyageai.com/reference/embeddings-api
+ * Free tier available — get an API key at: https://aistudio.google.com/app/apikey
+ * Model: text-embedding-004 (768 dimensions)
  */
 
-const VOYAGE_API_URL = 'https://api.voyageai.com/v1/embeddings'
-const VOYAGE_MODEL = 'voyage-3-lite'
+const GEMINI_MODEL = 'text-embedding-004'
+
+function getGeminiUrl(taskType?: string): string {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('GEMINI_API_KEY is not set')
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:embedContent?key=${key}`
+}
 
 export async function getEmbedding(text: string): Promise<number[]> {
-  const apiKey = process.env.VOYAGE_API_KEY
-  if (!apiKey) {
-    throw new Error('VOYAGE_API_KEY is not set')
-  }
+  const url = getGeminiUrl()
 
-  const res = await fetch(VOYAGE_API_URL, {
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: VOYAGE_MODEL,
-      input: [text.slice(0, 8000)],
-      input_type: 'document',
+      model: `models/${GEMINI_MODEL}`,
+      content: { parts: [{ text: text.slice(0, 8000) }] },
+      task_type: 'RETRIEVAL_DOCUMENT',
     }),
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(`Voyage API error: ${err.detail || res.statusText}`)
+    throw new Error(`Gemini embedding error: ${err?.error?.message || res.statusText}`)
   }
 
   const data = await res.json()
-  return data.data?.[0]?.embedding || []
+  return data.embedding?.values || []
 }
 
 export async function getQueryEmbedding(query: string): Promise<number[] | null> {
-  const apiKey = process.env.VOYAGE_API_KEY
-  if (!apiKey) return null
+  if (!process.env.GEMINI_API_KEY) return null
 
   try {
-    const res = await fetch(VOYAGE_API_URL, {
+    const url = getGeminiUrl()
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: VOYAGE_MODEL,
-        input: [query.slice(0, 1000)],
-        input_type: 'query',
+        model: `models/${GEMINI_MODEL}`,
+        content: { parts: [{ text: query.slice(0, 1000) }] },
+        task_type: 'RETRIEVAL_QUERY',
       }),
     })
 
     if (!res.ok) return null
 
     const data = await res.json()
-    return data.data?.[0]?.embedding || null
+    return data.embedding?.values || null
   } catch {
     return null
   }
