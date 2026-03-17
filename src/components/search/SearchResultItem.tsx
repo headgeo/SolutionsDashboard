@@ -2,15 +2,17 @@ import { SearchResult } from '@/types'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate, cn } from '@/lib/utils'
-import { Plus, Check, Users } from 'lucide-react'
+import { Plus, Check, Users, CheckSquare, Square } from 'lucide-react'
 
 interface SearchResultItemProps {
   result: SearchResult
   selected?: boolean
   active?: boolean
   inDeck?: boolean
+  shortlisted?: boolean
   onSelect: () => void
   onAddToDeck?: () => void
+  onToggleShortlist?: () => void
 }
 
 export function SearchResultItem({
@@ -18,8 +20,10 @@ export function SearchResultItem({
   selected,
   active,
   inDeck,
+  shortlisted,
   onSelect,
   onAddToDeck,
+  onToggleShortlist,
 }: SearchResultItemProps) {
   const { chunk, document: doc, similarity } = result
   const pct = Math.round(similarity * 100)
@@ -29,13 +33,27 @@ export function SearchResultItem({
       onClick={onSelect}
       className={cn(
         'group p-4 rounded-xl border cursor-pointer transition-all duration-150',
+        shortlisted && 'ring-1 ring-accent/30',
         active
           ? 'border-accent/50 bg-accent/5'
           : 'border-surface-border bg-surface-subtle hover:border-accent/30 hover:bg-surface-muted/40'
       )}
     >
       {/* Top row */}
-      <div className="flex items-start gap-3 mb-2">
+      <div className="flex items-start gap-2.5 mb-2">
+        {/* Shortlist checkbox */}
+        {onToggleShortlist && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleShortlist() }}
+            className={cn(
+              'mt-0.5 shrink-0 transition-colors',
+              shortlisted ? 'text-accent' : 'text-ink-faint hover:text-accent opacity-0 group-hover:opacity-100'
+            )}
+            title={shortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
+          >
+            {shortlisted ? <CheckSquare size={14} /> : <Square size={14} />}
+          </button>
+        )}
         <DocTypeIcon type={doc.type} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-ink truncate">{doc.filename}</p>
