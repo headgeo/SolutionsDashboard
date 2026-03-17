@@ -1,21 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function getEmbedding(text: string): Promise<number[]> {
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-3-small',
-      input: text.slice(0, 8000), // truncate to token limit
-    }),
-  })
-  const data = await res.json()
-  return data.data?.[0]?.embedding || []
-}
+import { getEmbedding } from '@/lib/embeddings'
 
 async function parseAndChunk(
   file: ArrayBuffer,
@@ -24,7 +9,6 @@ async function parseAndChunk(
 ): Promise<{ content: string; slide_number?: number; page_number?: number }[]> {
   // In production, use python-pptx / PyMuPDF via a Python microservice or Supabase Edge Function.
   // This is a simplified text extraction placeholder.
-  // For MVP, we extract raw text as single chunk per file.
   const decoder = new TextDecoder('utf-8', { fatal: false })
   const raw = decoder.decode(file)
 
@@ -78,7 +62,7 @@ export async function POST(
     // Generate embeddings and insert chunks
     let insertedCount = 0
     for (const chunk of chunks) {
-      if (!process.env.OPENAI_API_KEY) break // skip embedding if no key
+      if (!process.env.VOYAGE_API_KEY) break // skip embedding if no key
       const embedding = await getEmbedding(chunk.content)
       const chunkType = doc.type === 'pptx' ? 'slide' : doc.type === 'xlsx' ? 'section' : 'paragraph'
 
