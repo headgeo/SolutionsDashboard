@@ -84,6 +84,9 @@ export function DocumentCard({ document: doc, isAdmin, onStatusChange, onDelete 
       {/* Filename */}
       <div>
         <p className="text-sm font-medium text-ink leading-snug line-clamp-2">{doc.filename}</p>
+        {doc.summary && (
+          <p className="text-[11px] text-ink-muted leading-relaxed mt-1 line-clamp-2">{doc.summary}</p>
+        )}
       </div>
 
       {/* Tags */}

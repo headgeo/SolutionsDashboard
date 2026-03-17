@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmbedding } from '@/lib/embeddings'
+import { generateSummary } from '@/lib/claude'
 
 async function parseAndChunk(
   file: ArrayBuffer,
@@ -77,13 +78,28 @@ export async function POST(
       insertedCount++
     }
 
-    // Update chunk count on document
+    // Generate AI summary (non-blocking — best effort)
+    let summary: string | null = null
+    try {
+      summary = await generateSummary(
+        doc.filename,
+        chunks.map((c) => c.content)
+      )
+    } catch (e) {
+      console.warn('Summary generation failed:', e)
+    }
+
+    // Update chunk count and summary on document
     await supabase
       .from('documents')
-      .update({ chunk_count: insertedCount, updated_at: new Date().toISOString() })
+      .update({
+        chunk_count: insertedCount,
+        summary: summary || undefined,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', doc.id)
 
-    return NextResponse.json({ success: true, chunks: insertedCount })
+    return NextResponse.json({ success: true, chunks: insertedCount, summary })
   } catch (err: any) {
     console.error('Indexing error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
