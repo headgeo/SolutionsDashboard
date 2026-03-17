@@ -6,7 +6,7 @@ import { LogInteractionModal } from '@/components/clients/LogInteractionModal'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ToastContainer, useToast } from '@/components/ui/Toast'
-import { BookUser, Plus, Download, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { BookUser, Plus, Download, FileText, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { CLIENT_TYPE_LABELS } from '@/types'
 
@@ -155,9 +155,16 @@ export default function ClientLogPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-ink-muted">
-                          {log.document_ids?.length ?? 0} doc{(log.document_ids?.length ?? 0) !== 1 ? 's' : ''}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm text-ink-muted">
+                            {log.document_ids?.length ?? 0} doc{(log.document_ids?.length ?? 0) !== 1 ? 's' : ''}
+                          </span>
+                          {(log.documents?.length ?? 0) > 0 && (
+                            <span className="text-[10px] text-ink-faint truncate max-w-[120px]">
+                              ({log.documents?.map((d: any) => d.filename.split('.')[0]).join(', ')})
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-ink-muted">{(log.sender as any)?.name || '—'}</span>
@@ -181,12 +188,31 @@ export default function ClientLogPage() {
                         <td colSpan={6} className="px-4 py-3 bg-surface-muted/30">
                           <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-2">Documents sent</p>
                           <div className="flex flex-wrap gap-2">
-                            {log.documents?.map((doc: any) => (
-                              <div key={doc.id} className="flex items-center gap-1.5 text-xs bg-surface-muted px-2.5 py-1 rounded-full text-ink-muted">
-                                <FileText size={10} />
-                                {doc.filename}
-                              </div>
-                            ))}
+                            {log.documents?.map((doc: any) => {
+                              const typeColors: Record<string, string> = {
+                                pptx: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+                                xlsx: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+                                docx: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                                pdf: 'text-red-400 bg-red-400/10 border-red-400/20',
+                              }
+                              const colorClass = typeColors[doc.type] || 'text-ink-muted bg-surface-muted border-surface-border'
+                              return (
+                                <a
+                                  key={doc.id}
+                                  href={`/api/documents/${doc.id}/download`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border
+                                    hover:opacity-80 transition-opacity cursor-pointer ${colorClass}`}
+                                  title={`Download ${doc.filename}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <FileText size={11} />
+                                  <span className="max-w-[180px] truncate">{doc.filename}</span>
+                                  <ExternalLink size={9} className="opacity-60 shrink-0" />
+                                </a>
+                              )
+                            })}
                           </div>
                         </td>
                       </tr>

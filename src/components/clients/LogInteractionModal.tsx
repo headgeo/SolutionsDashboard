@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
-import { CLIENT_TYPES } from '@/lib/constants'
-import { X, Plus } from 'lucide-react'
+import { CLIENT_TYPES, CONTENT_TYPES, ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/lib/constants'
+import { X, Plus, Upload, FileText, Check } from 'lucide-react'
 
-interface Document { id: string; filename: string }
+interface Document { id: string; filename: string; type: string }
 interface Client { id: string; name: string }
 
 interface LogInteractionModalProps {
@@ -32,8 +32,18 @@ export function LogInteractionModal({ open, onClose, onSuccess }: LogInteraction
     notes: '',
   })
 
+  // Upload state
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadContentType, setUploadContentType] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [showUpload, setShowUpload] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (!open) return
+    setError(null)
+    setUploadFile(null)
+    setShowUpload(false)
     Promise.all([
       fetch('/api/clients').then((r) => r.json()),
       fetch('/api/documents?status=approved').then((r) => r.json()),
@@ -50,6 +60,41 @@ export function LogInteractionModal({ open, onClose, onSuccess }: LogInteraction
         ? prev.document_ids.filter((d) => d !== id)
         : [...prev.document_ids, id],
     }))
+  }
+
+  const handleUploadFile = async () => {
+    if (!uploadFile) return
+    if (!uploadContentType) { setError('Please select a content type for the uploaded document.'); return }
+    setUploading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('content_type', uploadContentType)
+      formData.append('status', 'approved') // auto-approve since it's being sent to a client
+      formData.append('upload_date', form.date_sent)
+
+      // Attach client if selected
+      if (form.client_id) formData.append('client_id', form.client_id)
+
+      const res = await fetch('/api/documents', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Upload failed')
+      }
+      const { document: doc } = await res.json()
+
+      // Add to documents list and select it
+      setDocuments((prev) => [{ id: doc.id, filename: doc.filename, type: doc.type }, ...prev])
+      setForm((prev) => ({ ...prev, document_ids: [...prev.document_ids, doc.id] }))
+      setUploadFile(null)
+      setUploadContentType('')
+      setShowUpload(false)
+    } catch (err: any) {
+      setError(err.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,6 +131,11 @@ export function LogInteractionModal({ open, onClose, onSuccess }: LogInteraction
     }
   }
 
+  const docTypeIcon = (type: string) => {
+    const colors: Record<string, string> = { pptx: 'text-orange-400', xlsx: 'text-emerald-400', docx: 'text-blue-400', pdf: 'text-red-400' }
+    return colors[type] || 'text-ink-faint'
+  }
+
   return (
     <Modal open={open} onClose={onClose} title="Log Client Interaction" description="Record materials sent to a client" size="lg">
       <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -118,26 +168,90 @@ export function LogInteractionModal({ open, onClose, onSuccess }: LogInteraction
 
         {/* Documents sent */}
         <div>
-          <label className="block text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">
-            Documents sent * ({form.document_ids.length} selected)
-          </label>
-          <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-lg border border-surface-border p-3 bg-surface-muted">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
+              Documents * ({form.document_ids.length} selected)
+            </label>
+            <button type="button" onClick={() => setShowUpload((v) => !v)}
+              className="text-xs text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+              <Upload size={11} /> {showUpload ? 'Hide upload' : 'Upload new'}
+            </button>
+          </div>
+
+          {/* Inline upload */}
+          {showUpload && (
+            <div className="mb-3 p-3 rounded-lg border border-accent/20 bg-accent/5 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_FILE_TYPES}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) {
+                      if (f.size > MAX_FILE_SIZE_BYTES) {
+                        setError(`File too large. Max ${MAX_FILE_SIZE_MB}MB.`)
+                        return
+                      }
+                      setUploadFile(f)
+                    }
+                  }}
+                />
+                {uploadFile ? (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText size={14} className="text-accent shrink-0" />
+                    <span className="text-xs text-ink truncate">{uploadFile.name}</span>
+                    <button type="button" onClick={() => setUploadFile(null)}
+                      className="p-0.5 rounded text-ink-faint hover:text-red-400">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 text-xs text-ink-muted hover:text-ink transition-colors flex-1">
+                    <Upload size={12} /> Choose file (.pptx, .xlsx, .docx, .pdf)
+                  </button>
+                )}
+              </div>
+              {uploadFile && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Select options={CONTENT_TYPES} placeholder="Content type..."
+                      value={uploadContentType}
+                      onChange={(e) => setUploadContentType(e.target.value)} />
+                  </div>
+                  <Button type="button" size="sm" onClick={handleUploadFile} loading={uploading}
+                    disabled={!uploadContentType}>
+                    <Upload size={12} /> Upload
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="max-h-44 overflow-y-auto space-y-1 rounded-lg border border-surface-border p-3 bg-surface-muted">
             {documents.length === 0 ? (
-              <p className="text-xs text-ink-faint text-center py-4">No approved documents available.</p>
+              <p className="text-xs text-ink-faint text-center py-4">
+                No approved documents available. Upload one above.
+              </p>
             ) : (
-              documents.map((doc) => (
-                <label key={doc.id} className="flex items-center gap-2.5 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={form.document_ids.includes(doc.id)}
-                    onChange={() => toggleDoc(doc.id)}
-                    className="rounded border-surface-border text-accent focus:ring-accent/30"
-                  />
-                  <span className="text-xs text-ink-muted group-hover:text-ink transition-colors truncate">
-                    {doc.filename}
-                  </span>
-                </label>
-              ))
+              documents.map((doc) => {
+                const selected = form.document_ids.includes(doc.id)
+                return (
+                  <label key={doc.id}
+                    className={`flex items-center gap-2.5 cursor-pointer rounded-md px-2 py-1.5 transition-colors
+                      ${selected ? 'bg-accent/5' : 'hover:bg-surface-subtle'}`}>
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors
+                      ${selected ? 'bg-accent border-accent' : 'border-surface-border'}`}>
+                      {selected && <Check size={10} className="text-white" />}
+                    </div>
+                    <input type="checkbox" checked={selected} onChange={() => toggleDoc(doc.id)} className="sr-only" />
+                    <FileText size={12} className={docTypeIcon(doc.type)} />
+                    <span className="text-xs text-ink truncate">{doc.filename}</span>
+                  </label>
+                )
+              })
             )}
           </div>
         </div>
