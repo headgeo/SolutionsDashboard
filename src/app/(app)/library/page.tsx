@@ -1,27 +1,31 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Document, DocumentStatus, DocumentType, ProductType } from '@/types'
+import { Document, DocumentStatus, DocumentType, ClientType } from '@/types'
 import { DocumentCard } from '@/components/documents/DocumentCard'
 import { UploadModal } from '@/components/documents/UploadModal'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { ToastContainer, useToast } from '@/components/ui/Toast'
-import { Upload, Library, SlidersHorizontal, X } from 'lucide-react'
-import { PRODUCT_TYPES, CLIENT_TYPES, STATUS_OPTIONS, DOC_TYPES } from '@/lib/constants'
+import { Upload, Library, SlidersHorizontal, X, Search } from 'lucide-react'
+import { CLIENT_TYPES, STATUS_OPTIONS, DOC_TYPES } from '@/lib/constants'
 
 const ALL_OPTION = { value: '', label: 'All' }
+
+interface ClientOption { id: string; name: string }
 
 export default function LibraryPage() {
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [clientSearch, setClientSearch] = useState('')
   const [filters, setFilters] = useState({
     status: '',
     type: '',
-    product_type: '',
+    client_id: '',
     client_type: '',
   })
   const { toasts, dismiss, success, error } = useToast()
@@ -43,6 +47,12 @@ export default function LibraryPage() {
   }, [filters, error])
 
   useEffect(() => { fetchDocs() }, [fetchDocs])
+
+  useEffect(() => {
+    fetch('/api/clients').then(r => r.json()).then(data => {
+      setClients(data.clients || [])
+    }).catch(() => {})
+  }, [])
 
   const handleStatusChange = async (id: string, status: DocumentStatus) => {
     try {
@@ -71,8 +81,12 @@ export default function LibraryPage() {
     }
   }
 
-  const clearFilters = () => setFilters({ status: '', type: '', product_type: '', client_type: '' })
+  const clearFilters = () => setFilters({ status: '', type: '', client_id: '', client_type: '' })
   const hasFilters = Object.values(filters).some(Boolean)
+
+  const filteredClients = clientSearch
+    ? clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
 
   return (
     <>
@@ -80,11 +94,11 @@ export default function LibraryPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+            <h1 className="text-2xl font-semibold text-ink">
               Library
             </h1>
             <p className="text-sm text-ink-muted mt-0.5">
-              {loading ? 'Loading…' : `${docs.length} document${docs.length !== 1 ? 's' : ''}`}
+              {loading ? 'Loading...' : `${docs.length} document${docs.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <Button onClick={() => setUploadOpen(true)}>
@@ -115,10 +129,10 @@ export default function LibraryPage() {
             </div>
             <div className="w-48">
               <Select
-                options={[ALL_OPTION, ...PRODUCT_TYPES]}
-                value={filters.product_type}
-                onChange={(e) => setFilters({ ...filters, product_type: e.target.value })}
-                placeholder="Product type"
+                options={[ALL_OPTION, ...clients.map(c => ({ value: c.id, label: c.name }))]}
+                value={filters.client_id}
+                onChange={(e) => setFilters({ ...filters, client_id: e.target.value })}
+                placeholder="Client"
               />
             </div>
             <div className="w-44">

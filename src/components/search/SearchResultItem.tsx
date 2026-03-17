@@ -1,9 +1,8 @@
 import { SearchResult } from '@/types'
 import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { PRODUCT_TYPE_LABELS } from '@/types'
 import { formatDate, cn } from '@/lib/utils'
-import { Plus, Check } from 'lucide-react'
+import { Plus, Check, Users } from 'lucide-react'
 
 interface SearchResultItemProps {
   result: SearchResult
@@ -67,10 +66,15 @@ export function SearchResultItem({
       {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-ink-faint">
-            {PRODUCT_TYPE_LABELS[doc.product_type]}
-          </span>
-          <span className="text-ink-faint text-[10px]">·</span>
+          {doc.client_name && (
+            <>
+              <span className="text-[10px] text-purple-400 flex items-center gap-0.5">
+                <Users size={8} />
+                {doc.client_name}
+              </span>
+              <span className="text-ink-faint text-[10px]">·</span>
+            </>
+          )}
           <span className="text-[10px] text-ink-faint">{formatDate(doc.upload_date)}</span>
         </div>
         {onAddToDeck && chunk.chunk_type === 'slide' && (

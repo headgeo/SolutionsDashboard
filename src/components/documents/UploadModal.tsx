@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { useToast, ToastContainer } from '@/components/ui/Toast'
-import { Upload, FileText, X } from 'lucide-react'
-import { PRODUCT_TYPES, CLIENT_TYPES, CONTENT_TYPES, STATUS_OPTIONS, ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/lib/constants'
+import { Upload, FileText, X, Plus } from 'lucide-react'
+import { CLIENT_TYPES, CONTENT_TYPES, STATUS_OPTIONS, ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+
+interface Client { id: string; name: string }
 
 interface UploadModalProps {
   open: boolean
@@ -20,8 +22,12 @@ export function UploadModal({ open, onClose, onSuccess }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [clients, setClients] = useState<Client[]>([])
+  const [isNewClient, setIsNewClient] = useState(false)
   const [form, setForm] = useState({
-    product_type: '',
+    client_id: '',
+    new_client_name: '',
+    new_client_type: '',
     client_type: '',
     content_type: '',
     status: 'draft',
@@ -30,6 +36,13 @@ export function UploadModal({ open, onClose, onSuccess }: UploadModalProps) {
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toasts, dismiss, success, error } = useToast()
+
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/clients').then(r => r.json()).then(data => {
+      setClients(data.clients || [])
+    }).catch(() => {})
+  }, [open])
 
   const handleFile = (f: File) => {
     if (f.size > MAX_FILE_SIZE_BYTES) {
@@ -49,16 +62,38 @@ export function UploadModal({ open, onClose, onSuccess }: UploadModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) return
-    if (!form.product_type || !form.client_type || !form.content_type) {
-      error('Please fill in all required fields.')
+    if (!form.content_type) {
+      error('Please select a content type.')
       return
     }
 
     setLoading(true)
     try {
+      // If new client, create it first
+      let clientId = form.client_id
+      if (isNewClient && form.new_client_name) {
+        const clientRes = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.new_client_name,
+            type: form.new_client_type || 'institutional',
+          }),
+        })
+        if (clientRes.ok) {
+          const { client } = await clientRes.json()
+          clientId = client.id
+        }
+      }
+
       const formData = new FormData()
       formData.append('file', file)
-      Object.entries(form).forEach(([k, v]) => formData.append(k, v))
+      formData.append('client_id', clientId)
+      formData.append('client_type', isNewClient ? (form.new_client_type || 'institutional') : form.client_type)
+      formData.append('content_type', form.content_type)
+      formData.append('status', form.status)
+      formData.append('upload_date', form.upload_date)
+      formData.append('author', form.author)
 
       const res = await fetch('/api/documents', { method: 'POST', body: formData })
       if (!res.ok) {
@@ -68,7 +103,8 @@ export function UploadModal({ open, onClose, onSuccess }: UploadModalProps) {
 
       success('Document uploaded and indexed successfully.')
       setFile(null)
-      setForm({ product_type: '', client_type: '', content_type: '', status: 'draft', upload_date: new Date().toISOString().split('T')[0], author: '' })
+      setForm({ client_id: '', new_client_name: '', new_client_type: '', client_type: '', content_type: '', status: 'draft', upload_date: new Date().toISOString().split('T')[0], author: '' })
+      setIsNewClient(false)
       onSuccess()
       onClose()
     } catch (err: any) {
@@ -125,22 +161,35 @@ export function UploadModal({ open, onClose, onSuccess }: UploadModalProps) {
             )}
           </div>
 
+          {/* Client selection */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Client</label>
+              <button type="button" onClick={() => setIsNewClient((v) => !v)}
+                className="text-xs text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+                <Plus size={11} /> {isNewClient ? 'Select existing' : 'New client'}
+              </button>
+            </div>
+            {isNewClient ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Client name" value={form.new_client_name}
+                  onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} />
+                <Select options={CLIENT_TYPES} placeholder="Client type..."
+                  value={form.new_client_type}
+                  onChange={(e) => setForm({ ...form, new_client_type: e.target.value })} />
+              </div>
+            ) : (
+              <Select
+                options={[{ value: '', label: 'No client (general)' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]  }
+                value={form.client_id}
+                onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+                placeholder="Select client..."
+              />
+            )}
+          </div>
+
           {/* Metadata fields */}
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Product Type *"
-              options={PRODUCT_TYPES}
-              placeholder="Select product..."
-              value={form.product_type}
-              onChange={(e) => setForm({ ...form, product_type: e.target.value })}
-            />
-            <Select
-              label="Client Type *"
-              options={CLIENT_TYPES}
-              placeholder="Select client type..."
-              value={form.client_type}
-              onChange={(e) => setForm({ ...form, client_type: e.target.value })}
-            />
             <Select
               label="Content Type *"
               options={CONTENT_TYPES}

@@ -1,14 +1,5 @@
 export type DocumentStatus = 'draft' | 'approved' | 'archived'
 export type DocumentType = 'pptx' | 'xlsx' | 'docx' | 'pdf'
-export type ProductType =
-  | 'autocallable'
-  | 'capital_protected_note'
-  | 'barrier_reverse_convertible'
-  | 'worst_of_best_of'
-  | 'leverage_certificate'
-  | 'interest_rate_structured'
-  | 'credit_linked_note'
-  | 'other'
 export type ClientType = 'institutional' | 'private_bank_eam' | 'family_office' | 'internal'
 export type ContentType =
   | 'pitch_deck'
@@ -36,7 +27,8 @@ export interface Document {
   upload_date: string
   uploader: string
   uploader_name?: string
-  product_type: ProductType
+  client_id?: string
+  client_name?: string
   client_type: ClientType
   content_type: ContentType
   status: DocumentStatus
@@ -71,6 +63,10 @@ export interface Client {
   id: string
   name: string
   type: ClientType
+  contact_email?: string
+  notes?: string
+  document_count?: number
+  last_interaction?: string
   created_at: string
 }
 
@@ -101,17 +97,6 @@ export interface DeckSlide {
   slide_number?: number
   thumbnail_url?: string
   content_text: string
-}
-
-export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
-  autocallable: 'Autocallable',
-  capital_protected_note: 'Capital Protected Note',
-  barrier_reverse_convertible: 'Barrier Reverse Convertible',
-  worst_of_best_of: 'Worst-of / Best-of',
-  leverage_certificate: 'Leverage Certificate',
-  interest_rate_structured: 'Interest Rate Structured',
-  credit_linked_note: 'Credit-Linked Note',
-  other: 'Other / Custom',
 }
 
 export const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
