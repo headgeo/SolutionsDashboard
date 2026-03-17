@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') || null
   const client_id = searchParams.get('client_id') || null
 
-  // Get query embedding via Voyage AI
+  // Get query embedding via Google Gemini
   const embedding = await getQueryEmbedding(query)
 
   let results: any[] = []
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       }))
     }
   } else {
-    // Fallback: full-text search if no Voyage API key
+    // Fallback: full-text search if no Gemini API key
     const q = supabase
       .from('chunks')
       .select('*, documents(*, clients:client_id(name))')
