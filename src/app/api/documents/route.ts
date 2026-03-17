@@ -42,6 +42,14 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // Ensure profile exists (required by documents.uploader foreign key)
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      role: 'user',
+    }, { onConflict: 'id', ignoreDuplicates: true })
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const client_id = formData.get('client_id') as string
