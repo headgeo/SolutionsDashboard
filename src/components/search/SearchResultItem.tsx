@@ -1,0 +1,93 @@
+import { SearchResult } from '@/types'
+import { DocTypeIcon } from '@/components/ui/DocTypeIcon'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { PRODUCT_TYPE_LABELS } from '@/types'
+import { formatDate, cn } from '@/lib/utils'
+import { Plus, Check } from 'lucide-react'
+
+interface SearchResultItemProps {
+  result: SearchResult
+  selected?: boolean
+  active?: boolean
+  inDeck?: boolean
+  onSelect: () => void
+  onAddToDeck?: () => void
+}
+
+export function SearchResultItem({
+  result,
+  selected,
+  active,
+  inDeck,
+  onSelect,
+  onAddToDeck,
+}: SearchResultItemProps) {
+  const { chunk, document: doc, similarity } = result
+  const pct = Math.round(similarity * 100)
+
+  return (
+    <div
+      onClick={onSelect}
+      className={cn(
+        'group p-4 rounded-xl border cursor-pointer transition-all duration-150',
+        active
+          ? 'border-accent/50 bg-accent/5'
+          : 'border-surface-border bg-surface-subtle hover:border-accent/30 hover:bg-surface-muted/40'
+      )}
+    >
+      {/* Top row */}
+      <div className="flex items-start gap-3 mb-2">
+        <DocTypeIcon type={doc.type} size="sm" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-ink truncate">{doc.filename}</p>
+          {chunk.slide_number && (
+            <p className="text-[10px] text-ink-faint">Slide {chunk.slide_number}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Relevance bar */}
+          <div className="flex items-center gap-1.5">
+            <div className="w-16 h-1 rounded-full bg-surface-border overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-ink-faint w-7 text-right">{pct}%</span>
+          </div>
+          <StatusBadge status={doc.status} size="sm" />
+        </div>
+      </div>
+
+      {/* Excerpt */}
+      <p className="text-xs text-ink-muted line-clamp-3 leading-relaxed mb-3">
+        {chunk.content_text}
+      </p>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-ink-faint">
+            {PRODUCT_TYPE_LABELS[doc.product_type]}
+          </span>
+          <span className="text-ink-faint text-[10px]">·</span>
+          <span className="text-[10px] text-ink-faint">{formatDate(doc.upload_date)}</span>
+        </div>
+        {onAddToDeck && chunk.chunk_type === 'slide' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddToDeck() }}
+            className={cn(
+              'flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-all',
+              inDeck
+                ? 'text-status-approved bg-status-approved/10'
+                : 'text-ink-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100'
+            )}
+          >
+            {inDeck ? <Check size={10} /> : <Plus size={10} />}
+            {inDeck ? 'In deck' : 'Add to deck'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,116 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { SEARCH_RESULT_COUNT, SIMILARITY_THRESHOLD } from '@/lib/constants'
+
+async function getQueryEmbedding(query: string): Promise<number[] | null> {
+  if (!process.env.OPENAI_API_KEY) return null
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: query.slice(0, 1000),
+    }),
+  })
+  const data = await res.json()
+  return data.data?.[0]?.embedding || null
+}
+
+export async function GET(request: NextRequest) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const query = searchParams.get('query')
+  if (!query?.trim()) return NextResponse.json({ results: [] })
+
+  const status = searchParams.get('status') || null
+  const type = searchParams.get('type') || null
+  const product_type = searchParams.get('product_type') || null
+
+  // Get query embedding
+  const embedding = await getQueryEmbedding(query)
+
+  let results: any[] = []
+
+  if (embedding) {
+    // Vector similarity search via pgvector RPC
+    const { data, error } = await supabase.rpc('search_chunks', {
+      query_embedding: embedding,
+      match_threshold: SIMILARITY_THRESHOLD,
+      match_count: SEARCH_RESULT_COUNT,
+      filter_status: status,
+      filter_doc_type: type,
+      filter_product_type: product_type,
+    })
+
+    if (!error && data) {
+      results = data.map((row: any) => ({
+        chunk: {
+          id: row.chunk_id,
+          document_id: row.document_id,
+          chunk_type: row.chunk_type,
+          content_text: row.content_text,
+          slide_number: row.slide_number,
+          page_number: row.page_number,
+        },
+        document: {
+          id: row.document_id,
+          filename: row.filename,
+          type: row.doc_type,
+          product_type: row.product_type,
+          client_type: row.client_type,
+          content_type: row.content_type,
+          status: row.status,
+          upload_date: row.upload_date,
+          storage_url: row.storage_url,
+          thumbnail_url: row.thumbnail_url,
+        },
+        similarity: row.similarity,
+        slide_image: null,
+      }))
+    }
+  } else {
+    // Fallback: full-text search if no OpenAI key
+    let q = supabase
+      .from('chunks')
+      .select('*, documents(*)')
+      .textSearch('content_text', query.split(' ').join(' | '))
+      .limit(SEARCH_RESULT_COUNT)
+
+    const { data } = await q
+    if (data) {
+      results = data.map((chunk: any) => ({
+        chunk: {
+          id: chunk.id,
+          document_id: chunk.document_id,
+          chunk_type: chunk.chunk_type,
+          content_text: chunk.content_text,
+          slide_number: chunk.slide_number,
+          page_number: chunk.page_number,
+        },
+        document: chunk.documents,
+        similarity: 0.5,
+        slide_image: null,
+      }))
+    }
+  }
+
+  // Fetch slide images for slide chunks
+  for (const result of results) {
+    if (result.chunk.chunk_type === 'slide') {
+      const { data: img } = await supabase
+        .from('slide_images')
+        .select('*')
+        .eq('chunk_id', result.chunk.id)
+        .single()
+      if (img) result.slide_image = img
+    }
+  }
+
+  return NextResponse.json({ results })
+}
