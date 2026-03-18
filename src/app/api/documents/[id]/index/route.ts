@@ -10,6 +10,19 @@ import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
 
 /**
+ * Check if a command is available on the system.
+ */
+function isCommandAvailable(cmd: string): boolean {
+  try {
+    const check = process.platform === 'win32' ? `where ${cmd}` : `which ${cmd}`
+    execSync(check, { stdio: 'pipe' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Generate slide thumbnail images from a PPTX file using LibreOffice headless.
  * Returns a map of slide_number -> PNG buffer.
  */
@@ -17,6 +30,12 @@ async function generateSlideThumbnails(
   buffer: ArrayBuffer
 ): Promise<Map<number, Buffer>> {
   const thumbnails = new Map<number, Buffer>()
+
+  if (!isCommandAvailable('libreoffice')) {
+    console.warn('Slide thumbnails skipped: LibreOffice is not installed. Install LibreOffice to enable slide thumbnail generation.')
+    return thumbnails
+  }
+
   const workDir = join(tmpdir(), `slide-thumbs-${randomUUID()}`)
 
   try {
