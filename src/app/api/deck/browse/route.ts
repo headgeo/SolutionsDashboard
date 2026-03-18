@@ -2,10 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
- * GET /api/deck/browse?document_id=xxx
+ * GET /api/deck/browse?document_id=xxx&search=keyword
  * Returns all slide chunks from uploaded PPTX documents for browsing in Deck Builder.
- * If document_id is provided, returns slides from that document only.
- * Otherwise returns all slide chunks grouped by document.
+ * Supports keyword search across slide content.
  */
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -14,6 +13,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const documentId = searchParams.get('document_id')
+  const search = searchParams.get('search')?.trim()
 
   let query = supabase
     .from('chunks')
@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
     query = query.eq('document_id', documentId)
   }
 
+  // Server-side text search using ilike
+  if (search) {
+    query = query.ilike('content_text', `%${search}%`)
+  }
+
   const { data: chunks, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -34,6 +39,7 @@ export async function GET(request: NextRequest) {
     document_id: string
     document_name: string
     document_type: string
+    content_type: string
     status: string
     slides: {
       chunk_id: string
@@ -50,6 +56,7 @@ export async function GET(request: NextRequest) {
         document_id: docId,
         document_name: chunk.documents?.filename || 'Unknown',
         document_type: chunk.documents?.type || 'pptx',
+        content_type: chunk.documents?.content_type || '',
         status: chunk.documents?.status || 'draft',
         slides: [],
       }
@@ -58,7 +65,7 @@ export async function GET(request: NextRequest) {
       chunk_id: chunk.id,
       slide_number: chunk.slide_number || 0,
       content_text: chunk.content_text,
-      thumbnail_url: null, // slide_images not yet populated
+      thumbnail_url: null,
     })
   }
 
