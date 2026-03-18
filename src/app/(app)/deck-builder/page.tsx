@@ -29,13 +29,22 @@ interface BrowseDocument {
 // Base categories for slide classification
 const BASE_CATEGORIES = [
   { id: 'all', label: 'All', keywords: [] },
+  { id: 'enhanced', label: 'Enhanced', keywords: ['enhanced', 'enhancement', 'enhanced yield', 'enhanced return'] },
+  { id: 'core', label: 'Core', keywords: ['core', 'core portfolio', 'core strategy', 'core allocation'] },
+  { id: 'conservative', label: 'Conservative', keywords: ['conservative', 'low risk', 'capital preservation', 'defensive'] },
+  { id: 'equalisation-swap', label: 'Equalisation Swap', keywords: ['equalisation', 'equalization', 'equalisation swap', 'equalization swap'] },
+  { id: 'index-linked-swap', label: 'Index Linked Swap', keywords: ['index linked', 'index swap', 'index linked swap', 'ils'] },
+  { id: 'portfolio-collateral', label: 'Portfolio Collateral', keywords: ['portfolio collateral', 'collateral', 'collateralised', 'collateralized', 'pledged'] },
+  { id: 'offer-rates', label: 'Offer Rates', keywords: ['offer rate', 'offer rates', 'indicative rate', 'pricing', 'coupon', 'spread'] },
+  { id: 'structure', label: 'Structure', keywords: ['structure', 'structured', 'payoff', 'barrier', 'autocall', 'note', 'certificate'] },
+  { id: 'value-proposition', label: 'Value Proposition', keywords: ['value proposition', 'value prop', 'benefits', 'advantage', 'why'] },
+  { id: 'security-arrangements', label: 'Security Arrangements', keywords: ['security arrangement', 'security arrangements', 'custody', 'safekeeping', 'segregated'] },
+  { id: 'credit-research', label: 'Credit Research', keywords: ['credit research', 'credit analysis', 'credit rating', 'credit quality', 'issuer'] },
+  { id: 'multiclass', label: 'Multiclass', keywords: ['multiclass', 'multi-class', 'multi class', 'asset class', 'multi-asset'] },
   { id: 'performance', label: 'Performance', keywords: ['performance', 'return', 'yield', 'benchmark', 'track record', 'historical', 'backtest'] },
   { id: 'laddering', label: 'Laddering', keywords: ['ladder', 'laddering', 'maturity', 'staggered', 'rolling'] },
-  { id: 'csa', label: 'CSA', keywords: ['csa', 'credit suisse', 'credit support', 'annex', 'collateral'] },
-  { id: 'product', label: 'Product', keywords: ['product', 'structure', 'payoff', 'barrier', 'autocall', 'note', 'certificate'] },
-  { id: 'market', label: 'Market', keywords: ['market', 'outlook', 'macro', 'economic', 'rates', 'volatility', 'equity'] },
+  { id: 'csa', label: 'CSA', keywords: ['csa', 'credit support', 'annex'] },
   { id: 'risk', label: 'Risk', keywords: ['risk', 'downside', 'worst case', 'scenario', 'stress', 'drawdown'] },
-  { id: 'pricing', label: 'Pricing', keywords: ['pricing', 'cost', 'fee', 'margin', 'spread', 'indicative'] },
 ]
 
 function categorizeSlide(contentText: string): string[] {
