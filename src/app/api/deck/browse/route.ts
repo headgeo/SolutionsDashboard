@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('chunks')
-    .select('*, documents!inner(id, filename, type, status, client_id, content_type)')
+    .select('*, documents!inner(id, filename, type, status, client_id, content_type), slide_images(*)')
     .eq('chunk_type', 'slide')
     .order('slide_number', { ascending: true })
 
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       chunk_id: chunk.id,
       slide_number: chunk.slide_number || 0,
       content_text: chunk.content_text,
-      thumbnail_url: null,
+      thumbnail_url: chunk.slide_images?.[0]?.thumbnail_url || null,
     })
   }
 

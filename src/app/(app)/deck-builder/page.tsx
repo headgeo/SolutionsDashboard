@@ -189,14 +189,14 @@ export default function DeckBuilderPage() {
     }
   }, [isResizing])
 
-  const addSlide = (chunkId: string, docName: string, slideNum: number, contentText: string) => {
+  const addSlide = (chunkId: string, docName: string, slideNum: number, contentText: string, thumbnailUrl?: string | null) => {
     if (slides.some((s) => s.chunk_id === chunkId)) return
     const newSlide: DeckSlide = {
       chunk_id: chunkId,
       document_id: '',
       document_name: docName,
       slide_number: slideNum,
-      thumbnail_url: undefined,
+      thumbnail_url: thumbnailUrl || undefined,
       content_text: contentText,
     }
     setSlides((prev) => [...prev, newSlide])
@@ -384,7 +384,7 @@ export default function DeckBuilderPage() {
                       {slide.thumbnail_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={slide.thumbnail_url} alt={`Slide ${i + 1}`}
-                          className="w-full h-full object-cover" />
+                          className="w-full h-full object-contain bg-white" />
                       ) : (
                         /* Text-based slide preview */
                         <div className="w-full h-full p-3 flex flex-col justify-between bg-gradient-to-br from-white to-gray-50">
@@ -600,7 +600,7 @@ export default function DeckBuilderPage() {
                             e.stopPropagation()
                             for (const slide of doc.slides) {
                               if (!slideIdsInDeck.has(slide.chunk_id)) {
-                                addSlide(slide.chunk_id, doc.document_name, slide.slide_number, slide.content_text)
+                                addSlide(slide.chunk_id, doc.document_name, slide.slide_number, slide.content_text, slide.thumbnail_url)
                               }
                             }
                           }}
@@ -631,14 +631,21 @@ export default function DeckBuilderPage() {
                                     document_id: doc.document_id,
                                     document_name: doc.document_name,
                                     slide_number: slide.slide_number,
+                                    thumbnail_url: slide.thumbnail_url || undefined,
                                     content_text: slide.content_text,
                                   })}
                                 >
+                                  {slide.thumbnail_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={slide.thumbnail_url} alt={`Slide ${slide.slide_number}`}
+                                      className="w-full h-full object-contain bg-white" />
+                                  ) : (
                                   <div className="w-full h-full p-2">
                                     <p className="text-[7px] font-medium text-gray-700 leading-tight line-clamp-3">
                                       {slide.content_text}
                                     </p>
                                   </div>
+                                  )}
                                   {/* Category tags */}
                                   {slideCats.length > 0 && (
                                     <div className="absolute top-1 right-1 flex gap-0.5">
@@ -666,7 +673,7 @@ export default function DeckBuilderPage() {
                                 <button
                                   onClick={() => {
                                     if (inDeck) remove(slide.chunk_id)
-                                    else addSlide(slide.chunk_id, doc.document_name, slide.slide_number, slide.content_text)
+                                    else addSlide(slide.chunk_id, doc.document_name, slide.slide_number, slide.content_text, slide.thumbnail_url)
                                   }}
                                   className={`w-full py-1.5 text-[10px] font-medium transition-colors
                                     ${inDeck
@@ -701,30 +708,38 @@ export default function DeckBuilderPage() {
             </button>
             <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/10">
               {/* Slide content — full preview */}
-              <div className="aspect-[16/10] bg-white p-8 flex flex-col justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800 mb-3 leading-snug">
-                    {previewSlide.content_text.split(/[.!?\n]/)[0]?.trim() || 'Slide Content'}
-                  </h2>
-                  <div className="space-y-2">
-                    {previewSlide.content_text
-                      .split(/[.!?\n]/)
-                      .slice(1)
-                      .filter(s => s.trim().length > 3)
-                      .map((line, j) => (
-                        <p key={j} className="text-sm text-gray-600 leading-relaxed">
-                          {line.trim()}
-                        </p>
-                      ))}
+              {previewSlide.thumbnail_url ? (
+                <div className="aspect-[16/10] bg-white flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewSlide.thumbnail_url} alt={`Slide ${previewSlide.slide_number}`}
+                    className="w-full h-full object-contain bg-white" />
+                </div>
+              ) : (
+                <div className="aspect-[16/10] bg-white p-8 flex flex-col justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-3 leading-snug">
+                      {previewSlide.content_text.split(/[.!?\n]/)[0]?.trim() || 'Slide Content'}
+                    </h2>
+                    <div className="space-y-2">
+                      {previewSlide.content_text
+                        .split(/[.!?\n]/)
+                        .slice(1)
+                        .filter(s => s.trim().length > 3)
+                        .map((line, j) => (
+                          <p key={j} className="text-sm text-gray-600 leading-relaxed">
+                            {line.trim()}
+                          </p>
+                        ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="h-1 w-12 bg-accent/40 rounded" />
+                    <span className="text-xs text-gray-400">
+                      {previewSlide.slide_number ? `Slide ${previewSlide.slide_number}` : ''}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <div className="h-1 w-12 bg-accent/40 rounded" />
-                  <span className="text-xs text-gray-400">
-                    {previewSlide.slide_number ? `Slide ${previewSlide.slide_number}` : ''}
-                  </span>
-                </div>
-              </div>
+              )}
               {/* Info bar */}
               <div className="bg-surface-subtle px-6 py-3 flex items-center justify-between border-t border-surface-border">
                 <div>
@@ -735,7 +750,7 @@ export default function DeckBuilderPage() {
                 </div>
                 {!slideIdsInDeck.has(previewSlide.chunk_id) ? (
                   <Button size="sm" onClick={() => {
-                    addSlide(previewSlide.chunk_id, previewSlide.document_name, previewSlide.slide_number || 0, previewSlide.content_text)
+                    addSlide(previewSlide.chunk_id, previewSlide.document_name, previewSlide.slide_number || 0, previewSlide.content_text, previewSlide.thumbnail_url)
                   }}>
                     <Plus size={13} /> Add to Deck
                   </Button>

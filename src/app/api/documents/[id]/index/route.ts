@@ -3,6 +3,94 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getEmbedding } from '@/lib/embeddings'
 import { generateSummary } from '@/lib/claude'
 import JSZip from 'jszip'
+import { execSync } from 'child_process'
+import { writeFileSync, readFileSync, readdirSync, mkdirSync, rmSync, existsSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
+import { randomUUID } from 'crypto'
+
+/**
+ * Generate slide thumbnail images from a PPTX file using LibreOffice headless.
+ * Returns a map of slide_number -> PNG buffer.
+ */
+async function generateSlideThumbnails(
+  buffer: ArrayBuffer
+): Promise<Map<number, Buffer>> {
+  const thumbnails = new Map<number, Buffer>()
+  const workDir = join(tmpdir(), `slide-thumbs-${randomUUID()}`)
+
+  try {
+    mkdirSync(workDir, { recursive: true })
+    const pptxPath = join(workDir, 'presentation.pptx')
+    writeFileSync(pptxPath, Buffer.from(buffer))
+
+    // Convert PPTX to PNG images using LibreOffice headless
+    execSync(
+      `libreoffice --headless --convert-to png --outdir "${workDir}" "${pptxPath}"`,
+      { timeout: 120000, stdio: 'pipe' }
+    )
+
+    // LibreOffice outputs a single file for single-page, or we need to use PDF intermediate
+    // For multi-slide, convert to PDF first then to individual PNGs
+    const pdfPath = join(workDir, 'presentation.pdf')
+
+    // Check if PDF conversion gives us individual pages
+    execSync(
+      `libreoffice --headless --convert-to pdf --outdir "${workDir}" "${pptxPath}"`,
+      { timeout: 120000, stdio: 'pipe' }
+    )
+
+    if (existsSync(pdfPath)) {
+      // Use LibreOffice to get slide count, then extract each page as PNG
+      // Use pdftoppm if available, otherwise use ImageMagick convert
+      try {
+        execSync(
+          `pdftoppm -png -r 300 "${pdfPath}" "${join(workDir, 'slide')}"`,
+          { timeout: 120000, stdio: 'pipe' }
+        )
+      } catch {
+        // Fallback: try using convert (ImageMagick)
+        try {
+          execSync(
+            `convert -density 200 "${pdfPath}" -quality 90 "${join(workDir, 'slide-%d.png')}"`,
+            { timeout: 120000, stdio: 'pipe' }
+          )
+        } catch {
+          // If neither works, just use the single PNG from direct conversion
+          const directPng = join(workDir, 'presentation.png')
+          if (existsSync(directPng)) {
+            thumbnails.set(1, readFileSync(directPng))
+          }
+          return thumbnails
+        }
+      }
+    }
+
+    // Read generated PNG files
+    const files = readdirSync(workDir)
+      .filter((f) => f.startsWith('slide') && f.endsWith('.png'))
+      .sort((a, b) => {
+        // Extract number from filename: slide-01.png, slide-1.png, slide-02.png etc.
+        const numA = parseInt(a.match(/(\d+)/)?.[1] || '0')
+        const numB = parseInt(b.match(/(\d+)/)?.[1] || '0')
+        return numA - numB
+      })
+
+    for (let i = 0; i < files.length; i++) {
+      const imgPath = join(workDir, files[i])
+      thumbnails.set(i + 1, readFileSync(imgPath))
+    }
+  } catch (err) {
+    console.error('Thumbnail generation failed:', err)
+  } finally {
+    // Cleanup temp directory
+    try {
+      rmSync(workDir, { recursive: true, force: true })
+    } catch {}
+  }
+
+  return thumbnails
+}
 
 /**
  * Extract text from a PPTX file. Returns one chunk per slide.
@@ -251,6 +339,17 @@ export async function POST(
 
     console.log(`Parsed ${chunks.length} chunks from ${doc.filename} (${doc.type})`)
 
+    // Generate slide thumbnails for PPTX files
+    let thumbnails: Map<number, Buffer> = new Map()
+    if (doc.type === 'pptx') {
+      try {
+        thumbnails = await generateSlideThumbnails(buffer)
+        console.log(`Generated ${thumbnails.size} slide thumbnails for ${doc.filename}`)
+      } catch (e) {
+        console.warn('Thumbnail generation failed, continuing without thumbnails:', e)
+      }
+    }
+
     // Generate embeddings and insert chunks
     let insertedCount = 0
     for (const chunk of chunks) {
@@ -279,6 +378,52 @@ export async function POST(
         console.error('Chunk insert error:', insertError)
       } else {
         insertedCount++
+
+        // Upload slide thumbnail if available
+        if (chunkType === 'slide' && thumbnails.size > 0) {
+          const slideNum = chunk.slide_number || chunk.page_number || 0
+          const thumbBuffer = thumbnails.get(slideNum)
+          if (thumbBuffer) {
+            try {
+              // Get the inserted chunk ID
+              const { data: insertedChunk } = await supabase
+                .from('chunks')
+                .select('id')
+                .eq('document_id', doc.id)
+                .eq('slide_number', slideNum)
+                .eq('chunk_type', 'slide')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single()
+
+              if (insertedChunk) {
+                const thumbPath = `thumbnails/${doc.id}/slide_${slideNum}.png`
+                const { error: uploadError } = await supabase.storage
+                  .from('documents')
+                  .upload(thumbPath, thumbBuffer, {
+                    contentType: 'image/png',
+                    upsert: true,
+                  })
+
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage
+                    .from('documents')
+                    .getPublicUrl(thumbPath)
+
+                  await supabase.from('slide_images').insert({
+                    chunk_id: insertedChunk.id,
+                    image_url: urlData.publicUrl,
+                    thumbnail_url: urlData.publicUrl,
+                  })
+                } else {
+                  console.warn(`Failed to upload thumbnail for slide ${slideNum}:`, uploadError)
+                }
+              }
+            } catch (e) {
+              console.warn(`Failed to save thumbnail for slide ${slideNum}:`, e)
+            }
+          }
+        }
       }
     }
 

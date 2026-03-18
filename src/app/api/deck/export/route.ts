@@ -153,12 +153,70 @@ export async function POST(request: NextRequest) {
             if (!outputZip.files[absPath] && srcZip.files[absPath]) {
               const chartData = await srcZip.files[absPath].async('uint8array')
               outputZip.file(absPath, chartData)
-              // Also copy chart rels if any
+              // Also copy chart rels and their referenced files (embedded Excel workbooks, etc.)
               const chartRelPath = absPath.replace('/charts/', '/charts/_rels/') + '.rels'
               if (srcZip.files[chartRelPath]) {
                 const chartRelData = await srcZip.files[chartRelPath].async('text')
                 outputZip.file(chartRelPath, chartRelData)
+                // Copy embedded workbooks referenced by charts
+                const embeddingRefs = chartRelData.match(/Target="[^"]*?\/embeddings\/[^"]+"/g) || []
+                for (const embRef of embeddingRefs) {
+                  const embPath = embRef.match(/Target="(.*?)"/)?.[1]
+                  if (embPath) {
+                    const absEmbPath = embPath.startsWith('../')
+                      ? 'ppt/' + embPath.replace('../', '')
+                      : embPath
+                    if (!outputZip.files[absEmbPath] && srcZip.files[absEmbPath]) {
+                      const embData = await srcZip.files[absEmbPath].async('uint8array')
+                      outputZip.file(absEmbPath, embData)
+                    }
+                  }
+                }
+                // Copy chart style and color files
+                const chartStyleRefs = chartRelData.match(/Target="[^"]*?(style|colors)\d*\.xml"/g) || []
+                for (const styleRef of chartStyleRefs) {
+                  const stylePath = styleRef.match(/Target="(.*?)"/)?.[1]
+                  if (stylePath) {
+                    const absStylePath = stylePath.startsWith('../')
+                      ? 'ppt/' + stylePath.replace('../', '')
+                      : absPath.replace(/\/[^/]+$/, '/') + stylePath
+                    if (!outputZip.files[absStylePath] && srcZip.files[absStylePath]) {
+                      const styleData = await srcZip.files[absStylePath].async('uint8array')
+                      outputZip.file(absStylePath, styleData)
+                    }
+                  }
+                }
               }
+            }
+          }
+        }
+
+        // Copy any referenced embedded objects (OLE, Excel, etc.)
+        const embeddingRefs = relXml.match(/Target="[^"]*?\/embeddings\/[^"]+"/g) || []
+        for (const ref of embeddingRefs) {
+          const embPath = ref.match(/Target="(.*?)"/)?.[1]
+          if (embPath) {
+            const absPath = embPath.startsWith('../')
+              ? 'ppt/' + embPath.replace('../', '')
+              : embPath
+            if (!outputZip.files[absPath] && srcZip.files[absPath]) {
+              const embData = await srcZip.files[absPath].async('uint8array')
+              outputZip.file(absPath, embData)
+            }
+          }
+        }
+
+        // Copy any referenced diagrams
+        const diagramRefs = relXml.match(/Target="[^"]*?\/diagrams\/[^"]+"/g) || []
+        for (const ref of diagramRefs) {
+          const diagPath = ref.match(/Target="(.*?)"/)?.[1]
+          if (diagPath) {
+            const absPath = diagPath.startsWith('../')
+              ? 'ppt/' + diagPath.replace('../', '')
+              : diagPath
+            if (!outputZip.files[absPath] && srcZip.files[absPath]) {
+              const diagData = await srcZip.files[absPath].async('uint8array')
+              outputZip.file(absPath, diagData)
             }
           }
         }
@@ -231,7 +289,42 @@ export async function POST(request: NextRequest) {
         return `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
       }).join('')
 
-      ctXml = ctXml.replace('</Types>', overrides + '</Types>')
+      // Ensure chart, embedding, and diagram content types are present
+      const contentTypeDefaults: Record<string, string> = {
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'bin': 'application/vnd.openxmlformats-officedocument.oleObject',
+      }
+
+      let extraDefaults = ''
+      for (const [ext, ct] of Object.entries(contentTypeDefaults)) {
+        if (!ctXml.includes(`Extension="${ext}"`)) {
+          extraDefaults += `<Default Extension="${ext}" ContentType="${ct}"/>`
+        }
+      }
+
+      // Add chart overrides for any new chart files
+      let chartOverrides = ''
+      for (const key of Object.keys(outputZip.files)) {
+        if (/^ppt\/charts\/chart\d+\.xml$/i.test(key)) {
+          const partName = '/' + key
+          if (!ctXml.includes(`PartName="${partName}"`)) {
+            chartOverrides += `<Override PartName="${partName}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`
+          }
+        }
+        if (/^ppt\/diagrams\//i.test(key) && key.endsWith('.xml')) {
+          const partName = '/' + key
+          if (!ctXml.includes(`PartName="${partName}"`)) {
+            // Determine diagram content type based on filename
+            let diagCt = 'application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml'
+            if (key.includes('colors')) diagCt = 'application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml'
+            else if (key.includes('style')) diagCt = 'application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml'
+            else if (key.includes('layout')) diagCt = 'application/vnd.ms-office.drawingml.diagramLayoutDefinition+xml'
+            chartOverrides += `<Override PartName="${partName}" ContentType="${diagCt}"/>`
+          }
+        }
+      }
+
+      ctXml = ctXml.replace('</Types>', extraDefaults + overrides + chartOverrides + '</Types>')
       outputZip.file('[Content_Types].xml', ctXml)
     }
 
